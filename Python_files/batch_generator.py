@@ -45,7 +45,6 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
         self.load_data()
 
     def load_data(self):
-
         if (self.EoF):
             raise StopIteration
 
@@ -56,11 +55,10 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 
         #TODO: think about what to do if end of file is reached
         if (count < self.batch_rows):
-            print("End of File reached")
             self.EoF = True
 
         # Create Generator
-        self.generator = ROOT.Generator_t(self.x_tensor, count, self.chunk_rows, self.num_columns)
+        self.generator = ROOT.Generator_t(self.x_tensor, self.batch_rows, count, self.num_columns)
 
     def __iter__(self):
         # reset
@@ -78,7 +76,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 
         # Load the next chunk
         self.current_chunck += 1
-        if (self.current_chunck < self.num_chuncks or self.use_whole_file):
+        if ((self.use_whole_file and not self.EoF) or (self.current_chunck < self.num_chuncks)):
             self.load_data()
             return self.__next__()
         
@@ -88,24 +86,22 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 main_folder = "../"
 
 # Import myBatcher.C
-ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}/Cpp_files/myBatcher.C"')
+ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/myBatcher.C"')
 
-columns = ["m_jj", "m_jjj", "m_jlv", "Type"] 
-x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}/data/Higgs_data.root", columns)
-# x_rdf = ROOT.RDataFrame("testTree", "testFile.root", columns)
+columns = ["m_jj", "m_jjj", "m_jlv"] 
+x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data.root", columns)
+# x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
 
 num_columns = len(columns)
 batch_rows = 100
-chunk_rows = 100_000
+chunk_rows = 2_000
 
 num_chunks = 1
 
-# filetered = x_rdf.Filter("m_jj < 1")
+generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
 
-# print(x_rdf)
-# print(filetered)
-
-generator = Generator(x_rdf, columns, chunk_rows, batch_rows, num_chunks, use_whole_file=True)
+for i, batch in enumerate(generator):
+    print(f"batch {i}")
 
 
 ###################################################################################################
