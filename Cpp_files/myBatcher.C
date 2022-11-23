@@ -78,12 +78,19 @@ class Generator_t
 {
 private:
     size_t current_row = 0, batch_size, num_rows, num_columns;
-    TMVA::Experimental::RTensor<float>& x_tensor;
+    TMVA::Experimental::RTensor<float>* x_tensor;
     bool drop_last;
 
 public:
 
-    Generator_t(TMVA::Experimental::RTensor<float>& x_tensor, const size_t batch_size, const size_t num_rows, 
+    Generator_t(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
+                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
+    
+    Generator_t(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
+                bool drop_last=true) 
+                : x_tensor(x_tensor), batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
+
+    Generator_t(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
                 const size_t num_columns, bool drop_last=true) 
                 : x_tensor(x_tensor), batch_size(batch_size), num_rows(num_rows), num_columns(num_columns), drop_last(drop_last) {}
 
@@ -93,7 +100,7 @@ public:
         if (current_row + batch_size <= num_rows)
         {
             unsigned long offset = current_row * num_columns;
-            TMVA::Experimental::RTensor<float> x_batch(x_tensor.GetData() + offset, {batch_size, num_columns});
+            TMVA::Experimental::RTensor<float> x_batch(x_tensor->GetData() + offset, {batch_size, num_columns});
 
             current_row += batch_size;
             return x_batch;
@@ -101,11 +108,22 @@ public:
         else
         {            
             // TODO: Implement drop_last
-            return x_tensor.Slice({{0, 0}, {0, 0}});
+            return x_tensor->Slice({{0, 0}, {0, 0}});
         }
     }
 
     void SetNumRows(size_t r) {num_rows = r;}
+
+    void Reset(size_t num_rows) {
+        this->num_rows = num_rows;
+        this->current_row = 0;
+    }
+
+    void SetTensor(TMVA::Experimental::RTensor<float>* x_tensor, const size_t num_rows) {
+        this->x_tensor = x_tensor;
+        this->num_rows = num_rows;
+        this->current_row = 0;
+    }
 
     bool HasData() {return (current_row + batch_size <= num_rows);}
 };
@@ -115,11 +133,11 @@ void myBatcher()
 {
     // Define variables
     std::vector<std::string> cols = {"m_jj", "m_jjj", "m_jlv", "m_lv"};
-    size_t batch_size = 20, start_row = 0, num_rows = 20, num_columns = cols.size();
+    size_t batch_size = 10, start_row = 0, num_rows = 10, num_columns = cols.size();
     bool random_order = false, drop_last = false;
 
     // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("testTree", "testFile.root", cols);
+    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("testTree", "data/testFile.root", cols);
     // ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "Higgs_data.root", cols);
     TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
 
@@ -136,15 +154,17 @@ void myBatcher()
     // std::cout << "current_row: " << func.GetCurrentRow() << std::endl;
 
     // define generator
-    // Generator_t generator(x_tensor, batch_size, num_rows, num_columns, drop_last);
+    Generator_t* generator = new Generator_t(batch_size, num_columns, drop_last);
+
+    generator->SetTensor(&x_tensor, num_rows);
 
     // Generate new batches until all data has been returned
-    // while (generator.HasData()) {
-    //     auto batch = generator();
+    while (generator->HasData()) {
+        auto batch = (*generator)();
 
-    //     std::cout << "batch" << std::endl;
-    //     // std::cout << batch << std::endl;
-    // }
+        std::cout << "batch" << std::endl;
+        std::cout << batch << std::endl;
+    }
 }
 
 int main() {

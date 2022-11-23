@@ -41,6 +41,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 """)
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
+        self.generator = ROOT.Generator_t(self.batch_rows, self.num_columns)
 
         self.load_data()
 
@@ -50,18 +51,21 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 
         start = self.current_chunck * self.chunk_rows
 
-        # Fill x_tensor
-        count = ROOT.load_data(self.x_tensor, x_rdf, self.columns, self.num_columns, self.chunk_rows, start)
+        # Fill x_tensor and get the number of rows that were processed
+        loaded_size = ROOT.load_data(self.x_tensor, x_rdf, self.columns, self.num_columns, self.chunk_rows, start)
 
         #TODO: think about what to do if end of file is reached
-        if (count < self.batch_rows):
+        if (loaded_size < self.batch_rows):
+            print("end of file reached")
             self.EoF = True
 
         # Create Generator
-        self.generator = ROOT.Generator_t(self.x_tensor, self.batch_rows, count, self.num_columns)
+        self.generator.Reset(self.x_tensor, loaded_size)
 
     def __iter__(self):
-        # reset
+
+        self.current_chunck = 0
+        self.load_data()
 
         return self
 
@@ -89,20 +93,19 @@ main_folder = "../"
 ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/myBatcher.C"')
 
 columns = ["m_jj", "m_jjj", "m_jlv"] 
-x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data.root", columns)
-# x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
+# x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
+x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
 
 num_columns = len(columns)
-batch_rows = 100
-chunk_rows = 2_000
-
-num_chunks = 1
+batch_rows = 2
+chunk_rows = 5
 
 generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
 
 for i, batch in enumerate(generator):
-    print(f"batch {i}")
+    print(f"batch {i}, {batch}")
 
+raise NotImplementedError
 
 ###################################################################################################
 ## AI example
