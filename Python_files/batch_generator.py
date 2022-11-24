@@ -132,9 +132,9 @@ main_folder = "../"
 # Import myBatcher.C
 ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/myBatcher.C"')
 
-columns = ["m_jj", "m_jjj", "m_jlv"] 
-# x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
-x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
+columns = ["m_jj", "m_jjj", "m_jlv", "Type"] 
+x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data.root", columns)
+# x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
 
 num_columns = len(columns)
 batch_rows = 5
