@@ -1,27 +1,12 @@
+from threading import Thread
 import ROOT
 import torch
 import numpy as np
+import time
 
-class Generator:
-
-    def __init__(self, x_rdf: ROOT.TMVA.Experimental.RTensor, columns: list[str], chunk_rows: int, 
-                 batch_rows: int, num_chuncks: int=1, use_whole_file: bool=True):
-        
-        # Initialize parameters
-        self.x_rdf = x_rdf
-        self.columns = columns
-        self.chunk_rows = chunk_rows
-        self.current_chunck = 0
-        self.num_chuncks = num_chuncks
-        self.EoF = False
-
-        self.num_columns = len(columns)
-        self.batch_rows = batch_rows
-        self.batch_size = batch_rows * self.num_columns
-        self.use_whole_file = use_whole_file
-
-        # Create C++ function
-        ROOT.gInterpreter.ProcessLine("""
+def load_functor(num_columns):
+    # Create C++ function
+    ROOT.gInterpreter.ProcessLine("""
 size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame x_rdf,
                 std::vector<std::string> cols, const size_t num_columns, 
                 const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
@@ -29,7 +14,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 
     
     // Fill the RTensor with the data from the RDataFrame
-""" + f"DataLoader<float, std::make_index_sequence<{self.num_columns}>>" + """
+""" + f"DataLoader<float, std::make_index_sequence<{num_columns}>>" + """
         func(x_tensor, num_columns, chunk_rows, random_order);
 
     auto myCount = x_rdf.Range(start_row, start_row + chunk_rows).Count();
@@ -39,33 +24,88 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
     return myCount.GetValue();
 }
 """)
-        # Create x_tensor
-        self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
+
+class Generator:
+
+    def __init__(self, x_rdf: ROOT.TMVA.Experimental.RTensor, columns: list[str], chunk_rows: int, 
+                 batch_rows: int, num_chunks: int=1, use_whole_file: bool=True):
+        
+        # Initialize parameters
+        self.x_rdf = x_rdf
+        self.columns = columns
+        self.num_columns = len(columns)
+
+        self.chunk_rows = chunk_rows
+        self.chunks_loaded = 0
+        self.num_chunks = num_chunks
+        self.use_whole_file = use_whole_file
+
+        self.batch_rows = batch_rows
+        self.batch_size = batch_rows * self.num_columns
+
+        # Compile C++ function
+        load_functor(self.num_columns)
+        
+        # Create two x_tensors and a generator
+        self.x_tensors = [ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns]) for _ in range(2)]
+        self.tensor_length = [0, 0]
+        self.current_tensor_idx = 0
+
         self.generator = ROOT.Generator_t(self.batch_rows, self.num_columns)
+        self.EoF = False
 
-        self.load_data()
+    def load_chunk(self, tensor_idx: int):
 
-    def load_data(self):
         if (self.EoF):
-            raise StopIteration
+            print("load_chunk => End of File")
+            return
 
-        start = self.current_chunck * self.chunk_rows
+        start = self.chunks_loaded * self.chunk_rows
+        print(f"load_chunk => Loading new data: {self.chunks_loaded = }")
 
-        # Fill x_tensor and get the number of rows that were processed
-        loaded_size = ROOT.load_data(self.x_tensor, x_rdf, self.columns, self.num_columns, self.chunk_rows, start)
 
-        #TODO: think about what to do if end of file is reached
-        if (loaded_size < self.batch_rows):
-            print("end of file reached")
+        time.sleep(1)
+
+        # Fill tensor_idx and get the number of rows that were processed
+        self.tensor_length[tensor_idx] = ROOT.load_data(self.x_tensors[tensor_idx], x_rdf, self.columns, 
+                                                        self.num_columns, self.chunk_rows, start, False)
+
+        print(f"load_chunk => Done loading: {self.chunks_loaded = }")
+        self.chunks_loaded += 1
+
+        if self.tensor_length[tensor_idx] < self.chunk_rows:
             self.EoF = True
 
-        # Create Generator
-        self.generator.Reset(self.x_tensor, loaded_size)
+    def next_chunk(self):
+        print("next chunk")
+        
+        self.thread.join()
+        next_tensor_idx = abs(1-self.current_tensor_idx)
+        # set the next tensor on the generator
+        self.generator.SetTensor(self.x_tensors[next_tensor_idx], self.tensor_length[next_tensor_idx])
+        
+        # check if more chuncks need to be loaded
+        if (self.chunks_loaded >= self.num_chunks):
+            self.EoF = True
+            return
+
+        # load data on the next tensor TODO: make parallel
+        self.thread = Thread(target=self.load_chunk, args=(self.current_tensor_idx,))
+        self.thread.start()
+
+        self.current_tensor_idx = next_tensor_idx
+
 
     def __iter__(self):
+        # Load the first chunk into the current_tensor
+        self.load_chunk(self.current_tensor_idx)
+        self.generator.SetTensor(self.x_tensors[self.current_tensor_idx], 
+                                 self.tensor_length[self.current_tensor_idx])
 
-        self.current_chunck = 0
-        self.load_data()
+        # Load the first chunk into the next_tensor TODO: make parallel
+        next_tensor_idx = abs(1-self.current_tensor_idx)
+        self.thread = Thread(target=self.load_chunk, args=(next_tensor_idx,))
+        self.thread.start()
 
         return self
 
@@ -78,13 +118,13 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
             data.reshape((self.batch_size,))
             return torch.Tensor(data).view(self.batch_rows, self.num_columns)
 
+        if self.EoF:
+            print(f"Stop Iteration")
+            raise StopIteration
+
         # Load the next chunk
-        self.current_chunck += 1
-        if ((self.use_whole_file and not self.EoF) or (self.current_chunck < self.num_chuncks)):
-            self.load_data()
-            return self.__next__()
-        
-        raise StopIteration
+        self.next_chunk()
+        return self.__next__()
 
 
 main_folder = "../"
@@ -97,13 +137,16 @@ columns = ["m_jj", "m_jjj", "m_jlv"]
 x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
 
 num_columns = len(columns)
-batch_rows = 2
-chunk_rows = 5
+batch_rows = 5
+chunk_rows = 12
 
-generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
+generator = Generator(x_rdf, columns, chunk_rows, batch_rows, num_chunks=5, use_whole_file=False)
 
 for i, batch in enumerate(generator):
-    print(f"batch {i}, {batch}")
+    print(f"main => got batch {i}, {batch}")
+    time.sleep(2)
+
+    print(f"main => processed batch")
 
 raise NotImplementedError
 
