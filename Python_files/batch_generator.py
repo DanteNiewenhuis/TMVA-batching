@@ -60,7 +60,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
             self.EoF = True
 
         # Create Generator
-        self.generator.Reset(self.x_tensor, loaded_size)
+        self.generator.SetTensor(self.x_tensor, loaded_size)
 
     def __iter__(self):
 
