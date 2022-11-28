@@ -23,32 +23,27 @@ class DataLoader<T, std::index_sequence<N...>>
     std::vector<std::vector<T>> fInput;
 
 private:
-    size_t num_rows, num_columns, current_row = 0;
-    bool random_order;
+    size_t final_row, num_columns, current_row;
+    float label;
+    bool add_label;
 
     std::vector<size_t> row_order;
     TMVA::Experimental::RTensor<float>& x_tensor;
 
 public:
-    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t num_rows, bool random_order=true)
-        : x_tensor(x_tensor), num_columns(num_columns), num_rows(num_rows), random_order(random_order)
-    {
-        // Create a vector with elements 0...num_rows
-        row_order = std::vector<size_t>(num_rows);
-        std::iota(row_order.begin(), row_order.end(), 0);
-
-
-        // Randomize the order
-        if (random_order) {
-            std::random_shuffle(row_order.begin(), row_order.end());
-        }
-    }
+    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t final_row, size_t starting_row=0, bool add_label=false, float label=0)
+        : x_tensor(x_tensor), num_columns(num_columns), final_row(final_row), current_row(starting_row), add_label(add_label), label(label)
+    {}
 
     // Assign the values of a given row to the TMVA::Experimental::RTensor
     template <typename First_T>
     void assign_to_tensor(size_t offset, size_t i, First_T first)
     {
         x_tensor.GetData()[offset + i] = first;
+
+        if (add_label) {
+            x_tensor.GetData()[offset + i + 1] = label;
+        }
     }
     template <typename First_T, typename... Rest_T>
     void assign_to_tensor(size_t offset, size_t i, First_T first, Rest_T... rest)
@@ -60,19 +55,23 @@ public:
     // Load the values of a row onto a random row of the Tensor
     void operator()(AlwaysT<N>... values)
     {
-        if (current_row >= num_rows)
+        if (current_row >= final_row)
             return;
 
-        assign_to_tensor(row_order[current_row] * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
+        assign_to_tensor(current_row * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
 
         current_row++;
     }
 
-    size_t GetCurrentRow() 
-    {
-        return current_row;
-    }
+    size_t GetCurrentRow() { return current_row;}
+    void SetCurrentRow(size_t i) {current_row = i;}
+
+    void SetLabel(float l) {label = l;}
 };
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Generator_t
 {
@@ -128,33 +127,42 @@ public:
     bool HasData() {return (current_row + batch_size <= num_rows);}
 };
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void myBatcher()
 {
     // Define variables
     std::vector<std::string> cols = {"m_jj", "m_jjj", "m_jlv", "m_lv"};
-    size_t batch_size = 10, start_row = 0, num_rows = 10, num_columns = cols.size();
-    bool random_order = false, drop_last = false;
+    size_t batch_size = 10, start_row = 0, num_rows = 20, num_columns = cols.size() + 1;
+
+    size_t file_rows = num_rows/2;
 
     // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("testTree", "data/testFile.root", cols);
+    ROOT::RDataFrame x_rdf_1 = ROOT::RDataFrame("testTree", "data/testFile.root", cols);
+    ROOT::RDataFrame x_rdf_2 = ROOT::RDataFrame("smallTree", "data/smallFile.root", cols);
     // ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "Higgs_data.root", cols);
     TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
 
     // Fill the RTensor with the data from the RDataFrame
     DataLoader<float, std::make_index_sequence<4>>
-        func(x_tensor, num_columns, num_rows, random_order);
+        func(x_tensor, num_columns, num_rows, 0, true, 0);
 
-    x_rdf.Range(start_row, start_row + num_rows).Foreach(func, cols);
+    x_rdf_1.Range(start_row, start_row + file_rows).Foreach(func, cols);
 
-    // func(1, 2, 4, 5);
+    // Set the starting row and label for the second dataframe
+    func.SetCurrentRow(file_rows);
+    func.SetLabel(1);
 
-    // std::cout << x_tensor << std::endl;
+    x_rdf_2.Range(start_row, start_row + file_rows).Foreach(func, cols);
+
+    std::cout << x_tensor << std::endl;
 
     // std::cout << "current_row: " << func.GetCurrentRow() << std::endl;
 
     // define generator
-    Generator_t* generator = new Generator_t(batch_size, num_columns, drop_last);
+    Generator_t* generator = new Generator_t(batch_size, num_columns);
 
     generator->SetTensor(&x_tensor, num_rows);
 
