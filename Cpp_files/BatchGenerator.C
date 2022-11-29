@@ -11,14 +11,28 @@ class BatchGenerator
 private:
     size_t current_row = 0, batch_size, num_rows, num_columns;
     TMVA::Experimental::RTensor<float>* x_tensor;
+    TMVA::Experimental::RTensor<float>* x_batch;
     bool drop_last;
+
+    std::vector<size_t> row_order;
 
 public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructors
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     BatchGenerator(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
-                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
+                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
+                    std::cout << "CONSTRUCTOR" << std::endl;
+
+                    x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
+                    row_order = std::vector<size_t>(num_rows);
+                    std::iota(row_order.begin(), row_order.end(), 0);
+                    randomize_order();
+
+                    for (auto i : row_order) {
+                        std::cout << i << std::endl;
+                    }
+                }
     
     BatchGenerator(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
                 bool drop_last=true) 
@@ -31,20 +45,67 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Batch function
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    TMVA::Experimental::RTensor<float> operator()()
+    void fillBatch(std::vector<size_t> idx) {
+        std::cout << "fill batch" << std::endl;
+        size_t offset;
+        for (int i = 0; i < batch_size; i++) {
+            std::cout << "fill: " << i << std::endl;
+            offset = idx[i]*num_columns;
+
+            // Look at std::copy
+
+            std::copy(x_tensor->GetData() + (idx[i]*num_columns), x_tensor->GetData() + ((idx[i]+1)*num_columns), x_batch->GetData() + i*num_columns);
+
+        }
+    }
+
+    void randomize_order() {
+        std::random_shuffle(row_order.begin(), row_order.end());
+    }
+
+    size_t next() 
+    {
+        std::cout << "NEXT" << std::endl;
+        std::cout << "current row: " << current_row << std::endl;
+        if (current_row >= num_rows) {
+            std::cout << "New Epoch" << std::endl;
+            randomize_order();
+            current_row = 0;
+        }
+        return row_order[current_row++];
+    }
+
+    // TMVA::Experimental::RTensor<float>* getBatch() {
+    //     std::vector<size_t> idx(batch_size);
+
+    //     for (int i = 0; i < batch_size; i++) {
+    //         idx[i] = next();
+    //     }
+
+    //     fillBatch(idx);
+
+    //     return x_batch;
+    // }
+
+    TMVA::Experimental::RTensor<float>* operator()()
     {
         if (current_row + batch_size <= num_rows)
         {
-            unsigned long offset = current_row * num_columns;
-            TMVA::Experimental::RTensor<float> x_batch(x_tensor->GetData() + offset, {batch_size, num_columns});
+            std::cout << "get batch" << std::endl;
+            std::vector<size_t> idx(batch_size);
 
-            current_row += batch_size;
+            for (int i = 0; i < batch_size; i++) {
+                idx[i] = next();
+            }
+
+            fillBatch(idx);
+
             return x_batch;
         }
         else
         {            
             // TODO: Implement drop_last
-            return x_tensor->Slice({{0, 0}, {0, 0}});
+            return x_batch;
         }
     }
     bool HasData() {return (current_row + batch_size <= num_rows);}

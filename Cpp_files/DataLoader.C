@@ -23,8 +23,10 @@ class DataLoader<T, std::index_sequence<N...>>
     std::vector<std::vector<T>> fInput;
 
 private:
-    size_t num_rows, num_columns, current_row = 0;
-    bool random_order;
+    size_t final_row, num_columns, current_row = 0;
+    float label;
+    bool add_label;
+    
 
     std::vector<size_t> row_order;
     TMVA::Experimental::RTensor<float>& x_tensor;
@@ -33,19 +35,10 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t num_rows, bool random_order=true)
-        : x_tensor(x_tensor), num_columns(num_columns), num_rows(num_rows), random_order(random_order)
-    {
-        // Create a vector with elements 0...num_rows
-        row_order = std::vector<size_t>(num_rows);
-        std::iota(row_order.begin(), row_order.end(), 0);
 
-
-        // Randomize the order
-        if (random_order) {
-            std::random_shuffle(row_order.begin(), row_order.end());
-        }
-    }
+    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t final_row, size_t starting_row=0, bool add_label=false, float label=0)
+        : x_tensor(x_tensor), num_columns(num_columns), final_row(final_row), current_row(starting_row), add_label(add_label), label(label)
+    {}
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Value assigning
@@ -55,6 +48,10 @@ public:
     void assign_to_tensor(size_t offset, size_t i, First_T first)
     {
         x_tensor.GetData()[offset + i] = first;
+
+        if (add_label) {
+            x_tensor.GetData()[offset + i + 1] = label;
+        }
     }
     template <typename First_T, typename... Rest_T>
     void assign_to_tensor(size_t offset, size_t i, First_T first, Rest_T... rest)
@@ -66,10 +63,10 @@ public:
     // Load the values of a row onto a random row of the Tensor
     void operator()(AlwaysT<N>... values)
     {
-        if (current_row >= num_rows)
+        if (current_row >= final_row)
             return;
 
-        assign_to_tensor(row_order[current_row] * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
+        assign_to_tensor(current_row * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
 
         current_row++;
     }
@@ -77,8 +74,8 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Getters and Setters
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    size_t GetCurrentRow() 
-    {
-        return current_row;
-    }
+    size_t GetCurrentRow() { return current_row;}
+    void SetCurrentRow(size_t i) {current_row = i;}
+
+    void SetLabel(float l) {label = l;}
 };
