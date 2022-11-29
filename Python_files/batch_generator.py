@@ -2,6 +2,8 @@ import ROOT
 import torch
 import numpy as np
 
+main_folder = "../"
+
 class Generator:
 
     def __init__(self, x_rdf: ROOT.TMVA.Experimental.RTensor, columns: list[str], chunk_rows: int, 
@@ -19,6 +21,10 @@ class Generator:
         self.batch_rows = batch_rows
         self.batch_size = batch_rows * self.num_columns
         self.use_whole_file = use_whole_file
+
+        # Import myBatcher.C
+        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
+        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
 
         # Create C++ function
         ROOT.gInterpreter.ProcessLine("""
@@ -87,12 +93,6 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode 
         
         raise StopIteration
 
-
-main_folder = "../"
-
-# Import myBatcher.C
-ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
-ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
 
 columns = ["m_jj", "m_jjj", "m_jlv"] 
 # x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
