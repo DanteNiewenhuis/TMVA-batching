@@ -2,13 +2,15 @@ import ROOT
 import torch
 import numpy as np
 
+main_folder = "../"
+
 class Generator:
 
     def __init__(self, x_rdf: ROOT.TMVA.Experimental.RTensor, columns: list[str], chunk_rows: int, 
                  batch_rows: int, num_chuncks: int=1, use_whole_file: bool=True):
         
         # Initialize parameters
-        self.x_rdf = x_rdf
+        self.x_node = ROOT.RDF.AsRNode(x_rdf)
         self.columns = columns
         self.chunk_rows = chunk_rows
         self.current_chunck = 0
@@ -20,9 +22,13 @@ class Generator:
         self.batch_size = batch_rows * self.num_columns
         self.use_whole_file = use_whole_file
 
+        # Import myBatcher.C
+        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
+        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+
         # Create C++ function
         ROOT.gInterpreter.ProcessLine("""
-size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame x_rdf,
+size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
                 std::vector<std::string> cols, const size_t num_columns, 
                 const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
 {
@@ -41,7 +47,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
 """)
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
-        self.generator = ROOT.Generator_t(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
 
         self.load_data()
 
@@ -52,7 +58,8 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
         start = self.current_chunck * self.chunk_rows
 
         # Fill x_tensor and get the number of rows that were processed
-        loaded_size = ROOT.load_data(self.x_tensor, x_rdf, self.columns, self.num_columns, self.chunk_rows, start)
+        loaded_size = ROOT.load_data(self.x_tensor, self.x_node, self.columns, self.num_columns, 
+                                     self.chunk_rows, start, False)
 
         #TODO: think about what to do if end of file is reached
         if (loaded_size < self.batch_rows):
@@ -87,20 +94,17 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame 
         raise StopIteration
 
 
-main_folder = "../"
-
-# Import myBatcher.C
-ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/myBatcher.C"')
-
 columns = ["m_jj", "m_jjj", "m_jlv"] 
 # x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
 x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
+
+x_filter = x_rdf.Filter("m_jj < 1")
 
 num_columns = len(columns)
 batch_rows = 2
 chunk_rows = 5
 
-generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
+generator = Generator(x_filter, columns, chunk_rows, batch_rows, use_whole_file=True)
 
 for i, batch in enumerate(generator):
     print(f"batch {i}, {batch}")

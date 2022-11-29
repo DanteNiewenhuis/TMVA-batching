@@ -3,18 +3,17 @@
 #include <vector>
 #include <algorithm>
 
+// Include ROOT files
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-// Primary template for the DataLoader class. 
-// Required for the second class template to work
-template <typename F, typename U>
-class DataLoader;
+// Include my classes
+#include "DataLoader.C"
+#include "BatchGenerator.C"
 
-// Dataloader class used to load content of a RDataFrame onto a RTensor.
-template <typename T, std::size_t... N>
-class DataLoader<T, std::index_sequence<N...>>
-{
+    // Fill the RTensor with the data from the RDataFrame
+    DataLoader<float, std::make_index_sequence<4>> func(x_tensor, 
+                        num_column
     // Magic used to make make_index_sequence work.
     // Code is based on the SofieFunctorHelper
     template <std::size_t Idx>
@@ -117,20 +116,6 @@ public:
         this->num_rows = num_rows;
         this->current_row = 0;
     }
-
-    void SetTensor(TMVA::Experimental::RTensor<float>* x_tensor, const size_t num_rows) {
-        this->x_tensor = x_tensor;
-        this->num_rows = num_rows;
-        this->current_row = 0;
-    }
-
-    bool HasData() {return (current_row + batch_size <= num_rows);}
-};
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void myBatcher()
 {
     // Define variables
