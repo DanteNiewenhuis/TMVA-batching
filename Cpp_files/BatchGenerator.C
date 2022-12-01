@@ -22,8 +22,6 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     BatchGenerator(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
                 : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
-                    std::cout << "CONSTRUCTOR" << std::endl;
-
                     x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
                 }
     
@@ -96,7 +94,6 @@ public:
         }
     }
     bool HasData() {
-        std::cout << "current_row: " << current_row << std::endl;
         return (current_row + batch_size <= num_rows);}
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
