@@ -25,13 +25,6 @@ public:
                     std::cout << "CONSTRUCTOR" << std::endl;
 
                     x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
-                    row_order = std::vector<size_t>(num_rows);
-                    std::iota(row_order.begin(), row_order.end(), 0);
-                    randomize_order();
-
-                    for (auto i : row_order) {
-                        std::cout << i << std::endl;
-                    }
                 }
     
     BatchGenerator(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
@@ -46,10 +39,8 @@ public:
     // Batch function
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void fillBatch(std::vector<size_t> idx) {
-        std::cout << "fill batch" << std::endl;
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
-            std::cout << "fill: " << i << std::endl;
             offset = idx[i]*num_columns;
 
             // Look at std::copy
@@ -65,10 +56,7 @@ public:
 
     size_t next() 
     {
-        std::cout << "NEXT" << std::endl;
-        std::cout << "current row: " << current_row << std::endl;
         if (current_row >= num_rows) {
-            std::cout << "New Epoch" << std::endl;
             randomize_order();
             current_row = 0;
         }
@@ -91,7 +79,6 @@ public:
     {
         if (current_row + batch_size <= num_rows)
         {
-            std::cout << "get batch" << std::endl;
             std::vector<size_t> idx(batch_size);
 
             for (int i = 0; i < batch_size; i++) {
@@ -108,7 +95,9 @@ public:
             return x_batch;
         }
     }
-    bool HasData() {return (current_row + batch_size <= num_rows);}
+    bool HasData() {
+        std::cout << "current_row: " << current_row << std::endl;
+        return (current_row + batch_size <= num_rows);}
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Getters and Setters
@@ -124,6 +113,10 @@ public:
         this->x_tensor = x_tensor;
         this->num_rows = num_rows;
         this->current_row = 0;
+
+        row_order = std::vector<size_t>(num_rows);
+        std::iota(row_order.begin(), row_order.end(), 0);
+        randomize_order();
     }
 
 };

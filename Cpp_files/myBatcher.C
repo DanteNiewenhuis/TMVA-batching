@@ -20,8 +20,8 @@ void myBatcher()
     size_t file_rows = num_rows/2;
 
     // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf_1 = ROOT::RDataFrame("testTree", "data/testFile.root", cols);
-    ROOT::RDataFrame x_rdf_2 = ROOT::RDataFrame("smallTree", "data/smallFile.root", cols);
+    ROOT::RDataFrame x_rdf_1 = ROOT::RDataFrame("sig_tree", "data/r0-10.root", cols);
+    ROOT::RDataFrame x_rdf_2 = ROOT::RDataFrame("sig_tree", "data/r10-20.root", cols);
     // ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "Higgs_data.root", cols);
     TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
 
@@ -51,7 +51,7 @@ void myBatcher()
         auto batch = (*generator)();
 
         std::cout << "batch" << std::endl;
-        std::cout << batch << std::endl;
+        std::cout << (*batch) << std::endl;
     }
 }
 
