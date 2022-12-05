@@ -4,6 +4,27 @@ import numpy as np
 
 main_folder = "../"
 
+def load_functor(num_columns):
+    # Import myBatcher.C
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+
+    # Create C++ function
+    ROOT.gInterpreter.ProcessLine("""
+size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
+                std::vector<std::string> cols, const size_t num_columns, 
+                const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
+{
+    
+    // Fill the RTensor with the data from the RDataFrame
+""" + f"DataLoader<float, std::make_index_sequence<{num_columns}>>" + """
+        func(x_tensor, num_columns, chunk_rows, random_order);
+    auto myCount = x_rdf.Range(start_row, start_row + chunk_rows).Count();
+    x_rdf.Range(start_row, start_row + chunk_rows).Foreach(func, cols);
+    return myCount.GetValue();
+}
+""")
+
 class Generator:
 
     def __init__(self, x_rdf: ROOT.TMVA.Experimental.RTensor, columns: list[str], chunk_rows: int, 
@@ -22,25 +43,8 @@ class Generator:
         self.batch_size = batch_rows * self.num_columns
         self.use_whole_file = use_whole_file
 
-        # Import myBatcher.C
-        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
-        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+        load_functor(self.num_columns)
 
-        # Create C++ function
-        ROOT.gInterpreter.ProcessLine("""
-size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
-                std::vector<std::string> cols, const size_t num_columns, 
-                const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
-{
-    
-    // Fill the RTensor with the data from the RDataFrame
-""" + f"DataLoader<float, std::make_index_sequence<{self.num_columns}>>" + """
-        func(x_tensor, num_columns, chunk_rows, random_order);
-    auto myCount = x_rdf.Range(start_row, start_row + chunk_rows).Count();
-    x_rdf.Range(start_row, start_row + chunk_rows).Foreach(func, cols);
-    return myCount.GetValue();
-}
-""")
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
         self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
@@ -88,60 +92,3 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode 
             return self.__next__()
         
         raise StopIteration
-
-
-columns = ["m_jj", "m_jjj", "m_jlv"] 
-# x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
-x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
-
-x_filter = x_rdf.Filter("m_jj < 1")
-
-num_columns = len(columns)
-batch_rows = 2
-chunk_rows = 5
-
-generator = Generator(x_filter, columns, chunk_rows, batch_rows, use_whole_file=True)
-
-for i, batch in enumerate(generator):
-    print(f"batch {i}, {batch}")
-
-raise NotImplementedError
-
-###################################################################################################
-## AI example
-###################################################################################################
-
-def calc_accuracy(targets, pred):
-    return torch.sum(targets == pred.round()) / pred.size(0)
-
-
-# Initialize pytorch 
-model = torch.nn.Sequential(
-    torch.nn.Linear(num_columns-1, 10),
-    torch.nn.ReLU(),
-    torch.nn.Linear(10, 1),
-    torch.nn.Sigmoid()
-)
-loss_fn = torch.nn.MSELoss(reduction='mean')
-optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-
-i = 0
-for batch in generator:
-
-    # Split x and y
-    x_train, y_train = batch[:,:num_columns-1], batch[:, -1]
-    
-    # Make prediction and calculate loss
-    pred = model(x_train).view(-1)
-    loss = loss_fn(pred, y_train)
-
-    # improve model
-    model.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    accuracy = calc_accuracy(y_train, pred)
-
-    print(f"batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
-
-    i += 1

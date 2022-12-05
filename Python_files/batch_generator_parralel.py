@@ -4,23 +4,25 @@ import torch
 import numpy as np
 import time
 
+main_folder = "../"
+
 def load_functor(num_columns):
+    # Import myBatcher.C
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+
     # Create C++ function
     ROOT.gInterpreter.ProcessLine("""
-size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDataFrame x_rdf,
+size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
                 std::vector<std::string> cols, const size_t num_columns, 
                 const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
 {
-
     
     // Fill the RTensor with the data from the RDataFrame
 """ + f"DataLoader<float, std::make_index_sequence<{num_columns}>>" + """
         func(x_tensor, num_columns, chunk_rows, random_order);
-
     auto myCount = x_rdf.Range(start_row, start_row + chunk_rows).Count();
-
     x_rdf.Range(start_row, start_row + chunk_rows).Foreach(func, cols);
-
     return myCount.GetValue();
 }
 """)
@@ -31,7 +33,7 @@ class Generator:
                  batch_rows: int, num_chunks: int=1, use_whole_file: bool=True):
         
         # Initialize parameters
-        self.x_rdf = x_rdf
+        self.x_node = ROOT.RDF.AsRNode(x_rdf)
         self.columns = columns
         self.num_columns = len(columns)
 
@@ -51,7 +53,7 @@ class Generator:
         self.tensor_length = [0, 0]
         self.current_tensor_idx = 0
 
-        self.generator = ROOT.Generator_t(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
         self.EoF = False
 
     def load_chunk(self, tensor_idx: int):
@@ -63,11 +65,8 @@ class Generator:
         start = self.chunks_loaded * self.chunk_rows
         print(f"load_chunk => Loading new data: {self.chunks_loaded = }")
 
-
-        time.sleep(1)
-
         # Fill tensor_idx and get the number of rows that were processed
-        self.tensor_length[tensor_idx] = ROOT.load_data(self.x_tensors[tensor_idx], x_rdf, self.columns, 
+        self.tensor_length[tensor_idx] = ROOT.load_data(self.x_tensors[tensor_idx], self.x_node, self.columns, 
                                                         self.num_columns, self.chunk_rows, start, False)
 
         print(f"load_chunk => Done loading: {self.chunks_loaded = }")
