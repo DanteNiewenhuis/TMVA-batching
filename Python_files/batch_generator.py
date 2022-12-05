@@ -63,14 +63,15 @@ class Generator:
 
         #TODO: think about what to do if end of file is reached
         if (loaded_size < self.batch_rows):
-            print("end of file reached")
+            print(f"end of file reached: {loaded_size = }")
             self.EoF = True
 
         # Create Generator
         self.generator.SetTensor(self.x_tensor, loaded_size)
 
     def __iter__(self):
-
+        
+        self.EoF = False
         self.current_chunck = 0
         self.load_data()
 
@@ -90,5 +91,3 @@ class Generator:
         if ((self.use_whole_file and not self.EoF) or (self.current_chunck < self.num_chuncks)):
             self.load_data()
             return self.__next__()
-        
-        raise StopIteration
