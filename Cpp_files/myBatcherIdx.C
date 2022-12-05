@@ -1,8 +1,10 @@
 #include <iostream>
 #include <tuple>
-
 #include <vector>
 #include <algorithm>
+
+#include "TMVA/RTensor.hxx"
+#include "ROOT/RDataFrame.hxx"
 
 using namespace ROOT;
 using namespace TMVA::Experimental;
@@ -110,15 +112,7 @@ public:
         for (int i = 0; i < batch_size; i++) {
             offset = idx[i]*num_columns;
 
-            // Look at std::copy
-
             std::copy(x_tensor->GetData() + (idx[i]*num_columns), x_tensor->GetData() + ((idx[i]+1)*num_columns), x_batch->GetData() + i*num_columns);
-
-            // x_batch->GetData()[i*num_columns] = x_tensor->GetData()[idx[i]*num_columns];
-
-            // for (int j = 0; j < num_columns; j++) {
-            //     x_batch->GetData()[i*num_columns + j] = x_tensor->GetData()[idx[i]*num_columns + j];
-            // }
         }
     }
 
