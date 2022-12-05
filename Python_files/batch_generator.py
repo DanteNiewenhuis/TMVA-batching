@@ -63,14 +63,15 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode 
 
         #TODO: think about what to do if end of file is reached
         if (loaded_size < self.batch_rows):
-            print("end of file reached")
+            print(f"end of file reached: {loaded_size = }")
             self.EoF = True
 
         # Create Generator
         self.generator.SetTensor(self.x_tensor, loaded_size)
 
     def __iter__(self):
-
+        
+        self.EoF = False
         self.current_chunck = 0
         self.load_data()
 
@@ -94,58 +95,58 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode 
         raise StopIteration
 
 
-columns = ["m_jj", "m_jjj", "m_jlv"] 
+# columns = ["m_jj", "m_jjj", "m_jlv"] 
 # x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
-x_rdf = ROOT.RDataFrame("testTree", f"{main_folder}data/testFile.root", columns)
+# # x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/r0-10.root", columns)
 
-x_filter = x_rdf.Filter("m_jj < 1")
+# # x_filter = x_rdf.Filter("m_jj < 1")
 
-num_columns = len(columns)
-batch_rows = 2
-chunk_rows = 5
+# num_columns = len(columns)
+# batch_rows = 2000
+# chunk_rows = 10_000
 
-generator = Generator(x_filter, columns, chunk_rows, batch_rows, use_whole_file=True)
+# generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
 
-for i, batch in enumerate(generator):
-    print(f"batch {i}, {batch}")
+# for i, batch in enumerate(generator):
+#     print(f"batch {i}")
 
-raise NotImplementedError
+# raise NotImplementedError
 
-###################################################################################################
-## AI example
-###################################################################################################
+# ###################################################################################################
+# ## AI example
+# ###################################################################################################
 
-def calc_accuracy(targets, pred):
-    return torch.sum(targets == pred.round()) / pred.size(0)
+# def calc_accuracy(targets, pred):
+#     return torch.sum(targets == pred.round()) / pred.size(0)
 
 
-# Initialize pytorch 
-model = torch.nn.Sequential(
-    torch.nn.Linear(num_columns-1, 10),
-    torch.nn.ReLU(),
-    torch.nn.Linear(10, 1),
-    torch.nn.Sigmoid()
-)
-loss_fn = torch.nn.MSELoss(reduction='mean')
-optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+# # Initialize pytorch 
+# model = torch.nn.Sequential(
+#     torch.nn.Linear(num_columns-1, 10),
+#     torch.nn.ReLU(),
+#     torch.nn.Linear(10, 1),
+#     torch.nn.Sigmoid()
+# )
+# loss_fn = torch.nn.MSELoss(reduction='mean')
+# optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-i = 0
-for batch in generator:
+# i = 0
+# for batch in generator:
 
-    # Split x and y
-    x_train, y_train = batch[:,:num_columns-1], batch[:, -1]
+#     # Split x and y
+#     x_train, y_train = batch[:,:num_columns-1], batch[:, -1]
     
-    # Make prediction and calculate loss
-    pred = model(x_train).view(-1)
-    loss = loss_fn(pred, y_train)
+#     # Make prediction and calculate loss
+#     pred = model(x_train).view(-1)
+#     loss = loss_fn(pred, y_train)
 
-    # improve model
-    model.zero_grad()
-    loss.backward()
-    optimizer.step()
+#     # improve model
+#     model.zero_grad()
+#     loss.backward()
+#     optimizer.step()
 
-    accuracy = calc_accuracy(y_train, pred)
+#     accuracy = calc_accuracy(y_train, pred)
 
-    print(f"batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
+#     print(f"batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
 
-    i += 1
+#     i += 1
