@@ -44,3 +44,15 @@ similar to Hyperparameter optimization
     - Decision Trees
     - Complex algorithms
     - Finding universally good parameters
+
+
+## Benchmarking
+
+1. Loading random vs loading sequential
+    - Different batch sizes
+    - Different chunk sizes 
+2. Batching random vs sequential
+    - Different batch sizes
+    - Different chunk sizes 
+3. NDataFrame vs DatasetSpec
+4. Python vs C++

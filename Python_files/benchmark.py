@@ -1,4 +1,4 @@
-from batch_generator import Generator
+from batch_generator_parralel import Generator
 import ROOT
 import numpy
 import time
@@ -24,7 +24,7 @@ x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", c
 
 num_columns = len(columns)
 batch_rows = 2000
-chunk_rows = 100_000
+chunk_rows = 1_000_000
 
 start = time.time()
 generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
@@ -51,11 +51,9 @@ times = [0]
 
 #     print("loop done")
 
-for i, batch in enumerate(generator):
-    times.append(time.time() - middle)
-    
-    # if (i % 50 == 0):
-    print(f"batch {i}")        
+for j in range(2):
+    for i, batch in enumerate(generator):
+        times.append(time.time() - middle)
 
 end = time.time()
 print(f"batching took: {end - middle}")
