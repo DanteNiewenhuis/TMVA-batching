@@ -15,32 +15,21 @@ void myBatcher()
 {
     // Define variables
     std::vector<std::string> cols = {"m_jj", "m_jjj", "m_jlv", "m_lv"};
-    size_t batch_size = 10, start_row = 0, num_rows = 10, num_columns = cols.size();
+    size_t batch_size = 10, start_row = 0, chunk_size = 20, num_columns = cols.size();
 
     // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf_1 = ROOT::RDataFrame("sig_tree", "data/r0-20.root", cols);
+    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "data/Higgs_data_full.root", cols);
 
-    TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
+    BatchGenerator generator(x_rdf, cols, chunk_size, batch_size);
 
-    // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<4>>
-        func(x_tensor, num_columns, num_rows, 0);
+    size_t i = 0;
+    while(true) {
+        auto batch = generator.get_batch();
+        std::cout << i++ << std::endl;
 
-    x_rdf_1.Range(start_row, start_row + num_rows).Foreach(func, cols);
-
-    std::cout << x_tensor << std::endl << std::endl;
-
-    // define generator
-    BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);
-
-    generator->SetTensor(&x_tensor, num_rows);
-
-    // Generate new batches until all data has been returned
-    while (generator->HasData()) {
-        auto batch = (*generator)();
-
-        std::cout << "batch" << std::endl;
-        std::cout << (*batch) << std::endl << std::endl;
+        if (batch->GetSize() == 0) {
+            break;
+        }
     }
 }
 
