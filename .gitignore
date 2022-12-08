@@ -35,3 +35,5 @@
 # My additions
 data/*
 .vscode
+
+**/__pycache__

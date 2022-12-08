@@ -53,7 +53,7 @@ class Generator:
         self.tensor_length = [0, 0]
         self.current_tensor_idx = 0
 
-        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchGeneratorHelper(self.batch_rows, self.num_columns)
         self.EoF = False
 
     def load_chunk(self, tensor_idx: int):

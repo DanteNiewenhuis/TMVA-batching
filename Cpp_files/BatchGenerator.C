@@ -6,10 +6,10 @@
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-class BatchGenerator
+class BatchGeneratorHelper
 {
 private:
-    size_t current_row = 0, batch_size, num_rows, num_columns;
+    size_t current_row = 0, batch_size, num_rows = 0, num_columns;
     TMVA::Experimental::RTensor<float>* x_tensor;
     TMVA::Experimental::RTensor<float>* x_batch;
     bool drop_last;
@@ -20,16 +20,16 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructors
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    BatchGenerator(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
+    BatchGeneratorHelper(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
                 : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
                     x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
                 }
     
-    BatchGenerator(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
+    BatchGeneratorHelper(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
                 bool drop_last=true) 
                 : x_tensor(x_tensor), batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
 
-    BatchGenerator(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
+    BatchGeneratorHelper(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
                 const size_t num_columns, bool drop_last=true) 
                 : x_tensor(x_tensor), batch_size(batch_size), num_rows(num_rows), num_columns(num_columns), drop_last(drop_last) {}
 
@@ -60,18 +60,6 @@ public:
         }
         return row_order[current_row++];
     }
-
-    // TMVA::Experimental::RTensor<float>* getBatch() {
-    //     std::vector<size_t> idx(batch_size);
-
-    //     for (int i = 0; i < batch_size; i++) {
-    //         idx[i] = next();
-    //     }
-
-    //     fillBatch(idx);
-
-    //     return x_batch;
-    // }
 
     TMVA::Experimental::RTensor<float>* operator()()
     {
@@ -116,4 +104,61 @@ public:
         randomize_order();
     }
 
+};
+
+
+class BatchGenerator 
+{
+private:
+    ROOT::RDataFrame& x_rdf;
+    std::vector<std::string> cols;
+    size_t num_columns, chunk_size, max_chunks, batch_size, current_chunk=0;
+
+    bool EoF = false;
+
+    TMVA::Experimental::RTensor<float>* x_tensor;
+    BatchGeneratorHelper* helper;
+
+public:
+    BatchGenerator(ROOT::RDataFrame& x_rdf, std::vector<std::string> cols, size_t chunk_size, size_t batch_size, size_t max_chunks):
+        x_rdf(x_rdf), cols(cols), num_columns(cols.size()), chunk_size(chunk_size), max_chunks(max_chunks), batch_size(batch_size) {
+        
+        x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
+        helper = new BatchGeneratorHelper(batch_size, num_columns);
+    }
+
+    void load_chunk() 
+    {
+        size_t start_row = current_chunk * chunk_size;
+        DataLoader<float, std::make_index_sequence<4>> func((*x_tensor), num_columns, start_row + chunk_size, start_row);
+
+        auto myCount = x_rdf.Range(start_row, start_row + chunk_size).Count();
+
+        x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);
+        
+        size_t loaded_size = myCount.GetValue();
+
+        if (loaded_size < chunk_size) {
+            std::cout << "End of File reached" << std::endl;
+            EoF = true;
+        }
+
+        helper->SetTensor(x_tensor, loaded_size);
+
+        current_chunk++;
+    }
+
+    TMVA::Experimental::RTensor<float>* get_batch()
+    {
+        if (helper->HasData()) {
+            return (*helper)();
+        }
+        if (current_chunk < max_chunks && !EoF) {
+            load_chunk();
+            return get_batch();
+        }
+        
+        auto tensor = new TMVA::Experimental::RTensor<float>({0,0});
+        return tensor;
+    }
 };

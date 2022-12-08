@@ -47,9 +47,9 @@ class Generator:
 
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
-        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchGeneratorHelper(self.batch_rows, self.num_columns)
 
-    def load_chunk(self):
+    def load_data(self):
         start = self.current_chunck * self.chunk_rows
 
         # Fill x_tensor and get the number of rows that were processed
