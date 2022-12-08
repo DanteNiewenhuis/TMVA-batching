@@ -5,6 +5,7 @@
 
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
+#include "ROOT/RDF/RDatasetSpec.hxx"
 
 class BatchGeneratorHelper
 {
@@ -130,16 +131,27 @@ public:
     void load_chunk() 
     {
         size_t start_row = current_chunk * chunk_size;
-        DataLoader<float, std::make_index_sequence<4>> func((*x_tensor), num_columns, start_row + chunk_size, start_row);
+        DataLoader<float, std::make_index_sequence<29>> func((*x_tensor), num_columns, chunk_size);
+        func.SetCurrentRow(0);
 
         auto myCount = x_rdf.Range(start_row, start_row + chunk_size).Count();
 
         x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);
-        
+
+        // long long start_l = start_row;
+        // long long end_l = start_l + chunk_size;
+
+        // ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec("test_tree", 
+        //                                         "data/Higgs_data_full.root", {start_l, end_l});
+
+        // ROOT::RDataFrame x_rdf_2 = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
+
+        // auto myCount = x_rdf_2.Count();
+        // x_rdf_2.Foreach(func, cols);
+
         size_t loaded_size = myCount.GetValue();
 
         if (loaded_size < chunk_size) {
-            std::cout << "End of File reached" << std::endl;
             EoF = true;
         }
 

@@ -64,8 +64,6 @@ public:
     // Load the values of a row onto a random row of the Tensor
     void operator()(AlwaysT<N>... values)
     {
-        if (current_row >= final_row)
-            return;
 
         assign_to_tensor(current_row * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
 

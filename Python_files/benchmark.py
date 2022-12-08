@@ -44,8 +44,8 @@ times = [0]
 for i, batch in enumerate(generator):
     times.append(time.time() - middle)
 
-    # if (i % 25 == 0):
-    #     print(f"batch {i}")
+    if (i % 50 == 0):
+        print(f"batch {i}")
 
 
 end = time.time()
