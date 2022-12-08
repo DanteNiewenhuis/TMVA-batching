@@ -47,7 +47,7 @@ class Generator:
 
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
-        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchGeneratorHelper(self.batch_rows, self.num_columns)
 
         self.load_data()
 
