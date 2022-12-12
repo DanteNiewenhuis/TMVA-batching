@@ -17,11 +17,12 @@ void myBatcher()
 {
     // Define variables
     // std::vector<std::string> cols = {"m_jj", "m_jjj", "m_jlv", "m_lv"};
-    size_t batch_size = 2000, chunk_size = 1000000, max_chunks = 20000;
+    size_t batch_size = 2000, chunk_size = 1000001, max_chunks = 20000;
 
     // Load the RDataFrame and create a new tensor
     ROOT::RDataFrame x_rdf = ROOT::RDataFrame("test_tree", "data/Higgs_data_full.root");
     std::vector<std::string> cols = x_rdf.GetColumnNames();
+
 
     BatchGenerator generator(x_rdf, cols, chunk_size, batch_size, max_chunks);
     
