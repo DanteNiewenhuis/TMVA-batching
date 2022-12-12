@@ -32,5 +32,5 @@
 - Parralel -> Ideally, a new chunk can be loaded into memory while processing the batches. 
               An initial version of this has already been implemented in Python, but can be improved.
 
-
 - DataSetSpec cannot load rows that are not in the RDataFrame. We will thus need another method of stopping
+
