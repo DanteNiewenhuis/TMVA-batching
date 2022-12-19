@@ -9,173 +9,213 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-#include "DataLoader.C"
-#include "BatchGenerator.C"
+// #include "DataLoader.C"
+#include "BatchGeneratorSpec.C"
+#include "ROOT/RDF/RDatasetSpec.hxx"
 
 // Timing
 #include <chrono>
 
-void load_data() {
-    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", 
-        "fjet_ECF2", "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
-        "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", "fjet_Tau3_wta", 
-        "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta", "fjet_m", "fjet_phi", 
-        "fjet_pt", "weights"};
+void datasetspec_test(size_t chunk_size, string name) {
+    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
+                                    "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
+                                    "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", 
+                                    "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", 
+                                    "fjet_eta", "fjet_m", "fjet_phi", "fjet_pt", "weights"};
 
-    size_t batch_size = 1000, start_row = 0, chunk_size = 1000000, num_columns = cols.size();
+    size_t batch_size = 2000, max_chunks = 20000;
 
-    // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "data/h5train_combined.root", cols);
-
-    TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
-
-    // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<20>>
-        func(x_tensor, num_columns, chunk_size, 0);
-
-    BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);
-
-    x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);
-
-    generator->SetTensor(&x_tensor, chunk_size);
-
-    // Generate new batches until all data has been returned
-    while (generator->HasData()) {
-        auto batch = (*generator)();
-
-        std::cout << "batch" << std::endl;
-        // std::cout << (*batch) << std::endl << std::endl;
+    string file_name;
+    if (name == "h5") {
+        file_name = "data/h5train_combined.root";
     }
-
-    start_row = chunk_size;
-
-    x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);
-
-    generator->SetTensor(&x_tensor, chunk_size);
-
-    // Generate new batches until all data has been returned
-    while (generator->HasData()) {
-        auto batch = (*generator)();
-
-        std::cout << "batch" << std::endl;
-        // std::cout << (*batch) << std::endl << std::endl;
+    if (name == "Higgs") {
+        file_name = "data/Higgs_data_full.root";
     }
-}
+    string tree_name = "sig_tree";
 
-void load_chunkk() {
-    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", 
-        "fjet_ECF2", "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
-        "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", "fjet_Tau3_wta", 
-        "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta", "fjet_m", "fjet_phi", 
-        "fjet_pt", "weights"};
+    TFile* f = TFile::Open(file_name.c_str());
+    TTree* t = f->Get<TTree>(tree_name.c_str());
+    size_t entries = t->GetEntries();
 
+    std::cout << entries << std::endl;
+
+    ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
+    // std::vector<std::string> cols = x_rdf.GetColumnNames();
     size_t num_columns = cols.size();
 
-    size_t chunk_size = 10, batch_size = 10;
-
-    // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "data/h5train_combined.root", cols);
-
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
+    DataLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
 
-    // Fill the RTensor with the data from the RDataFrame
-
-
-    BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);
-
+    ofstream myFile;
+    string s = "results/DataFrame_DatasetSpec/DatasetSpec_" + name + "_" + std::to_string(chunk_size) + ".txt";
+    myFile.open(s);
     
+    for (size_t current_row = 0; current_row + chunk_size <= entries; current_row += chunk_size) {
+        auto start = std::chrono::steady_clock::now();
 
-    generator->SetTensor(&x_tensor, chunk_size);
+        long long start_l = current_row;
+        long long end_l = start_l + chunk_size;
+        ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec(tree_name, 
+                                                file_name, {start_l, std::numeric_limits<Long64_t>::max()});
+        ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
+
+        x_rdf.Range(0, chunk_size).Foreach(func, cols);
+        
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        std::cout << elapsed_seconds.count() << std::endl;
+        myFile << elapsed_seconds.count() << std::endl;
+    }
+
+    myFile.close();
 }
 
-void load_chunk(ROOT::RDataFrame x_rdf, TMVA::Experimental::RTensor<float>& x_tensor, BatchGenerator& generator, 
-                size_t chunk_size = 1000000, size_t start_row = 0, size_t batch_size = 1000) {
-    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", 
-        "fjet_ECF2", "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
-        "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", "fjet_Tau3_wta", 
-        "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta", "fjet_m", "fjet_phi", 
-        "fjet_pt", "weights"};
 
+void dataframe_test(size_t chunk_size, string name) {
+    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
+                                    "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
+                                    "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", 
+                                    "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", 
+                                    "fjet_eta", "fjet_m", "fjet_phi", "fjet_pt", "weights"};
+
+    size_t batch_size = 2000, max_chunks = 20000;
+
+    string file_name;
+    if (name == "h5") {
+        file_name = "data/h5train_combined.root";
+    }
+    if (name == "Higgs") {
+        file_name = "data/Higgs_data_full.root";
+    }
+
+    string tree_name = "sig_tree";
+
+    TFile* f = TFile::Open(file_name.c_str());
+    TTree* t = f->Get<TTree>(tree_name.c_str());
+    size_t entries = t->GetEntries();
+
+    std::cout << entries << std::endl;
+
+    ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
+    // std::vector<std::string> cols = x_rdf.GetColumnNames();
     size_t num_columns = cols.size();
 
-    DataLoader<float, std::make_index_sequence<20>>
-        func(x_tensor, num_columns, chunk_size, 0);
+    TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
+    DataLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
 
-    x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);
+    string s = "results/DataFrame_DatasetSpec/DataFrame_" + name + "_" + std::to_string(chunk_size) + ".txt";
 
-    generator.SetTensor(&x_tensor, chunk_size);
+    ofstream myFile;
+    myFile.open(s);
+    
+    for (size_t current_row = 0; current_row + chunk_size <= entries; current_row += chunk_size) {
+        auto start = std::chrono::steady_clock::now();
+        // ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
+
+        x_rdf.Range(current_row, current_row + chunk_size).Foreach(func, cols);
+        
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        std::cout << elapsed_seconds.count() << std::endl;
+        myFile << elapsed_seconds.count() << std::endl;
+    }
+
+    myFile.close();
 }
 
-// void chunk_size_benchmark(){
-//     std::ofstream myFile;
-//     myFile.open("results/increasing_chunk_size.txt");
+void generator_test(size_t chunk_size, string name) {
+    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
+                                    "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
+                                    "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", 
+                                    "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", 
+                                    "fjet_eta", "fjet_m", "fjet_phi", "fjet_pt", "weights"};
 
-//     std::vector<size_t> sizes = {100, 1000, 10000, 100000, 1000000, 10000000};
+    size_t batch_size = 2000, max_chunks = 20000;
 
-//     for (size_t chunk_size : sizes) {
-//         std::cout << chunk_size << std::endl;
-//         auto start = std::chrono::steady_clock::now();
-//         load_chunk(chunk_size);
-//         auto end = std::chrono::steady_clock::now();
-//         std::chrono::duration<double> elapsed_seconds = end-start;
-//         std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_seconds);
-//         myFile << chunk_size << "," << ms.count() << std::endl;
-//     }
+    string file_name;
+    if (name == "h5") {
+        file_name = "data/h5train_combined.root";
+    }
+    if (name == "Higgs") {
+        file_name = "data/Higgs_data_full.root";
+    }
 
-//     myFile.close(); 
-// }
+    string tree_name = "sig_tree";
 
-// void starting_row_benchmark(){
-//     std::ofstream myFile;
-//     myFile.open("results/increasing_starting_row.txt");
+    // ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
+    // std::vector<std::string> cols = x_rdf.GetColumnNames();
+    size_t num_columns = cols.size();
 
-//     size_t chunk_size = 1000000;
+    string s = "results/Cpp_Python/" + std::to_string(chunk_size) + "_Cpp_Spec.txt";
 
-//     std::vector<size_t> starts;
+    ofstream myFile;
+    myFile.open(s, std::ofstream::trunc);
+    myFile << "0" << std::endl;
 
-//     for (int i = 0; i < 10; i++) {
-//         starts.push_back(chunk_size*i);
-//     }
+    BatchGenerator generator = BatchGenerator(file_name, tree_name, cols, chunk_size, batch_size, max_chunks);
+    
+    auto start = std::chrono::steady_clock::now();
+    while(generator.hasData()) {
+        auto batch = generator.get_batch();
 
-//     for (size_t start_row : starts) {
-//         std::cout << start_row << std::endl;
-//         auto start = std::chrono::steady_clock::now();
-//         load_chunk(chunk_size, start_row);
-//         auto end = std::chrono::steady_clock::now();
-//         std::chrono::duration<double> elapsed_seconds = end-start;
-//         std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_seconds);
-//         myFile << chunk_size << "," << ms.count() << std::endl;
-//     }
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
 
-//     myFile.close(); 
-// }
+        myFile << elapsed_seconds.count() << std::endl;
+    }
 
+    myFile.close();
+}
+
+void chunk_test(size_t chunk_size, string name) {
+    // std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
+    //                                 "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
+    //                                 "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", 
+    //                                 "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", 
+    //                                 "fjet_eta", "fjet_m", "fjet_phi", "fjet_pt", "weights"};
+
+    size_t batch_size = 2000, max_chunks = 20000;
+
+    string file_name;
+    if (name == "h5") {
+        file_name = "data/h5train_combined.root";
+    }
+    if (name == "Higgs") {
+        file_name = "data/Higgs_data_full.root";
+    }
+
+    string tree_name = "sig_tree";
+
+    ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
+    std::vector<std::string> cols = x_rdf.GetColumnNames();
+    size_t num_columns = cols.size();
+
+    string s = "results/chunk_test/Cpp_Frame.txt";
+
+    ofstream myFile;
+    myFile.open(s, std::ofstream::trunc);
+    myFile << "0" << std::endl;
+
+    BatchGenerator generator = BatchGenerator(file_name, tree_name, cols, chunk_size, batch_size, max_chunks);
+    
+    auto start = std::chrono::steady_clock::now();
+    while(generator.hasData()) {
+        generator.load_chunk();
+
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        myFile << elapsed_seconds.count() << std::endl;
+    }
+
+    myFile.close();
+}
 
 
 void benchmark()
 {
-    // chunk_size_benchmark();
-    // starting_row_benchmark();
-    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", 
-        "fjet_ECF2", "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
-        "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", "fjet_Tau3_wta", 
-        "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta", "fjet_m", "fjet_phi", 
-        "fjet_pt", "weights"};
-
-    size_t num_columns = cols.size(), chunk_size = 100, batch_size = 100;
-
-
-
-
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "data/h5train_combined.root", cols);
-
-    TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
-
-    // Fill the RTensor with the data from the RDataFrame
-
-    BatchGenerator generator(batch_size, num_columns);
-
-    load_chunk(x_rdf, x_tensor, generator, chunk_size, 0, batch_size);
-
-    std::cout << x_tensor << std::endl;
+    generator_test(1000000, "h5");
 }

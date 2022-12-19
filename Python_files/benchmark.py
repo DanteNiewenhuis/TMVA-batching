@@ -1,4 +1,4 @@
-from batch_generator_parralel import Generator
+from batch_generator import Generator
 import ROOT
 import numpy
 import time
@@ -14,7 +14,7 @@ columns = x_rdf.GetColumnNames()
 
 num_columns = len(columns)
 batch_rows = 2000
-chunk_rows = 1_000_000
+chunk_rows = 10_000
 
 start = time.time()
 generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
@@ -25,31 +25,31 @@ print(f"loading took: {middle - start}")
 
 times = [0]
 
-# i = 0
-# goal = 20_000
-# while i < goal:
-#     for batch in enumerate(generator):
-#         times.append(time.time() - middle)
+i = 0
+goal = 5_000
+while i < goal:
+    for batch in enumerate(generator):
+        times.append(time.time() - middle)
         
-#         if (i % 50 == 0):
-#             print(f"batch {i}")
+        if (i % 50 == 0):
+            print(f"batch {i}")
 
-#         if i >= goal:
-#             break
+        if i >= goal:
+            break
         
-#         i += 1
+        i += 1
 
-#     print("loop done")
+    print("loop done")
 
-for i, batch in enumerate(generator):
-    times.append(time.time() - middle)
+# for i, batch in enumerate(generator):
+#     times.append(time.time() - middle)
 
-    if (i % 50 == 0):
-        print(f"batch {i}")
+#     if (i % 50 == 0):
+#         print(f"batch {i}")
 
 
 end = time.time()
 print(f"batching took: {end - middle}")
 
-# with open(f"{main_folder}results/data.txt", "w") as f:
-#     f.write(",".join([str(i) for i in times]))
+with open(f"{main_folder}results/python_data.txt", "w") as f:
+    f.write(",".join([str(i) for i in times]))
