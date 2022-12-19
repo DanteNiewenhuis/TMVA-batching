@@ -10,30 +10,6 @@ def load_functor(num_columns):
     ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
 
     # Create C++ function
-#     ROOT.gInterpreter.ProcessLine("""
-# size_t load_chunk(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
-#                 std::vector<std::string> cols, const size_t num_columns, 
-#                 const size_t chunk_rows, const size_t start_row = 0, bool random_order=true) 
-# {
-    
-#     // Fill the RTensor with the data from the RDataFrame
-# """ + f"ChunkLoader<float, std::make_index_sequence<{num_columns}>>" + """
-#         func(x_tensor, num_columns, chunk_rows, random_order);
-
-#     long long start_l = start_row;
-#     long long end_l = start_l + chunk_rows;
-#     ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec("test_tree", 
-#                                                 "../data/Higgs_data_full.root", {start_l, std::numeric_limits<Long64_t>::max()});
-#     ROOT::RDataFrame x_rdf_2 = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
-
-
-#     auto myCount = x_rdf_2.Range(0, chunk_rows).Count();
-#     x_rdf_2.Range(0, chunk_rows).Foreach(func, cols);
-#     return myCount.GetValue();
-# }
-# """)
-
-    # Create C++ function
     ROOT.gInterpreter.ProcessLine("""
 size_t load_chunk(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode x_rdf,
                 std::vector<std::string> cols, const size_t num_columns, 
