@@ -7,7 +7,7 @@
 #include "ROOT/RDF/RDatasetSpec.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-#include "DataLoader.C"
+#include "ChunkLoader.C"
 #include <chrono>
 
 void AsTensorBenchmark() {
@@ -22,8 +22,8 @@ void AsTensorBenchmark() {
     std::chrono::duration<double> elapsed_seconds;
 
     auto start = std::chrono::steady_clock::now();
-    // DATALOADER
-    DataLoader<float, std::make_index_sequence<29>>
+    // ChunkLoader
+    ChunkLoader<float, std::make_index_sequence<29>>
         func(x_tensor, num_columns, chunk_size, 0);
 
     x_rdf.Range(start_row, start_row + chunk_size).Foreach(func, cols);

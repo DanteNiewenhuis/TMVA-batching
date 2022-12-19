@@ -1,27 +1,27 @@
 ## Deliverables
 
-- Dataloader -> A functor that loads the content of a RDataFrame into a RTensor. 
+- ChunkLoader -> A functor that loads the content of a RDataFrame into a RTensor. 
                 Using the Range function a specific chunk of the RDataFrame can be loaded.  
                 The process is much faster than the current TMVA AsTensor implementation (around 15x). 
                 
 
 
-- BatchGeneratorHelper -> Takes a RTensor and splits it into batches. 
+- BatchLoader -> Takes a RTensor and splits it into batches. 
                           The generator can return both random batches, or sequential. 
                           However, returning random batches is standard in AI, and thus better to use. 
                           Comparing random batching to sequential batching has not resulted in significant time difference yet (more testing needed).
 
-- BatchGenerator -> Combines the Dataloader and the BatchGeneratorHelper. 
-                        A Chunk of Data is loaded into memory using the DataLoader. 
-                        After, the BatchGeneratorHelper is used to create batches. 
+- BatchGenerator -> Combines the ChunkLoader and the BatchLoader. 
+                        A Chunk of Data is loaded into memory using the ChunkLoader. 
+                        After, the BatchLoader is used to create batches. 
                         When the current chunk of data has been loaded completely, a new chunk is loaded. 
 
                     The user can specify the size of a chunk. This is especially useful when dealing with larger files. 
 
 ## Problems
 
-- Column number ->  Problem: The implementation of the DataLoader uses templating to read the columns. 
-                    Solution: Dynamicly compile the DataLoader functions.
+- Column number ->  Problem: The implementation of the ChunkLoader uses templating to read the columns. 
+                    Solution: Dynamicly compile the ChunkLoader functions.
                         This already works in the Python implementation, but still has to be added to the Cpp loader
 
 - DataSetSpec -> Currently, loading chunks gets slower further into the process. This is because the Range function first has through all the rows 

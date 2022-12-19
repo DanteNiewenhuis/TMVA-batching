@@ -6,7 +6,7 @@ main_folder = "../"
 
 def load_functor(num_columns):
     # Import myBatcher.C
-    # ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
+    # ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/ChunkLoader.C"')
     ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
 
     # Create C++ function
@@ -17,7 +17,7 @@ size_t load_chunk(TMVA::Experimental::RTensor<float>& x_tensor, string file_name
 {
     
     // Fill the RTensor with the data from the RDataFrame
-""" + f"DataLoader<float, std::make_index_sequence<{num_columns}>>" + """
+""" + f"ChunkLoader<float, std::make_index_sequence<{num_columns}>>" + """
         func(x_tensor, num_columns, chunk_rows, random_order);
 
     long long start_l = start_row;
@@ -61,7 +61,7 @@ class Generator:
 
         # Create x_tensor
         self.x_tensor = ROOT.TMVA.Experimental.RTensor("float")([self.chunk_rows, self.num_columns])    
-        self.generator = ROOT.BatchGeneratorHelper(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchLoader(self.batch_rows, self.num_columns)
 
     def load_chunk(self):
         print(f"{self.current_row = }")

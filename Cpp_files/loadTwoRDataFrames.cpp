@@ -8,7 +8,7 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-#include "DataLoader.C"
+#include "ChunkLoader.C"
 #include "BatchGenerator.C"
 
 void loadTwoRDataFrames()
@@ -26,7 +26,7 @@ void loadTwoRDataFrames()
     TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
 
     // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<4>>
+    ChunkLoader<float, std::make_index_sequence<4>>
         func(x_tensor, num_columns, num_rows, 0);
 
     x_rdf_1.Range(start_row, start_row + file_rows).Foreach(func, cols);

@@ -6,14 +6,14 @@
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-// Primary template for the DataLoader class. 
+// Primary template for the ChunkLoader class. 
 // Required for the second class template to work
 template <typename F, typename U>
-class DataLoader;
+class ChunkLoader;
 
-// Dataloader class used to load content of a RDataFrame onto a RTensor.
+// ChunkLoader class used to load content of a RDataFrame onto a RTensor.
 template <typename T, std::size_t... N>
-class DataLoader<T, std::index_sequence<N...>>
+class ChunkLoader<T, std::index_sequence<N...>>
 {
     // Magic used to make make_index_sequence work.
     // Code is based on the SofieFunctorHelper
@@ -36,7 +36,7 @@ public:
     // Constructor
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t final_row, size_t starting_row=0, 
+    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t final_row, size_t starting_row=0, 
                bool add_label=false, float label=0)
         : x_tensor(x_tensor), num_columns(num_columns), final_row(final_row), current_row(starting_row), add_label(add_label), label(label)
     {}

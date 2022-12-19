@@ -9,7 +9,7 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-// #include "DataLoader.C"
+// #include "ChunkLoader.C"
 #include "BatchGeneratorSpec.C"
 #include "ROOT/RDF/RDatasetSpec.hxx"
 
@@ -45,7 +45,7 @@ void datasetspec_test(size_t chunk_size, string name) {
     size_t num_columns = cols.size();
 
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
-    DataLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
+    ChunkLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
 
     ofstream myFile;
     string s = "results/DataFrame_DatasetSpec/DatasetSpec_" + name + "_" + std::to_string(chunk_size) + ".txt";
@@ -103,7 +103,7 @@ void dataframe_test(size_t chunk_size, string name) {
     size_t num_columns = cols.size();
 
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
-    DataLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
+    ChunkLoader<float, std::make_index_sequence<20>> func(x_tensor, num_columns, chunk_size);
 
     string s = "results/DataFrame_DatasetSpec/DataFrame_" + name + "_" + std::to_string(chunk_size) + ".txt";
 

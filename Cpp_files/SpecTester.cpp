@@ -10,7 +10,7 @@
 #include "ROOT/RDF/RDatasetSpec.hxx"
 
 // Include my classes
-#include "DataLoader.C"
+#include "ChunkLoader.C"
 #include "BatchGenerator.C"
 
 void load_chunk_base(size_t chunk_size = 1000, size_t start_row = 0, size_t batch_size = 100) {
@@ -26,7 +26,7 @@ void load_chunk_base(size_t chunk_size = 1000, size_t start_row = 0, size_t batc
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
 
     // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<20>>
+    ChunkLoader<float, std::make_index_sequence<20>>
         func(x_tensor, num_columns, chunk_size, 0);
 
     BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);
@@ -47,7 +47,7 @@ void load_chunk_base_2(ROOT::RDataFrame* x_rdf, TMVA::Experimental::RTensor<floa
     size_t num_columns = cols.size();
 
     // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<20>>
+    ChunkLoader<float, std::make_index_sequence<20>>
         func((*x_tensor), num_columns, chunk_size, 0);
 
     BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);
@@ -75,7 +75,7 @@ void load_chunk_spec(size_t chunk_size = 1000, size_t start_row = 0, size_t batc
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
 
     // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<20>>
+    ChunkLoader<float, std::make_index_sequence<20>>
         func(x_tensor, num_columns, chunk_size, 0);
 
     BatchGenerator* generator = new BatchGenerator(batch_size, num_columns);

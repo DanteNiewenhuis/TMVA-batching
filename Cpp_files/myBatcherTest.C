@@ -6,14 +6,14 @@
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-// Primary template for the DataLoader class. 
+// Primary template for the ChunkLoader class. 
 // Required for the second class template to work
 template <typename F, typename U>
-class DataLoader;
+class ChunkLoader;
 
-// Dataloader class used to load content of a ROOT::RDataFrame onto a TMVA::Experimental::RTensor.
+// ChunkLoader class used to load content of a ROOT::RDataFrame onto a TMVA::Experimental::RTensor.
 template <typename T, std::size_t... N>
-class DataLoader<T, std::index_sequence<N...>>
+class ChunkLoader<T, std::index_sequence<N...>>
 {
     // Magic used to make make_index_sequence work.
     // Code is based on the SofieFunctorHelper
@@ -30,7 +30,7 @@ private:
     TMVA::Experimental::RTensor<float>& x_tensor;
 
 public:
-    DataLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t num_rows, bool random_order=true)
+    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t num_rows, bool random_order=true)
         : x_tensor(x_tensor), num_columns(num_columns), num_rows(num_rows), random_order(random_order)
     {
         // Create a vector with elements 0...num_rows
@@ -119,7 +119,7 @@ TMVA::Experimental::RTensor<float> load_data(
     TMVA::Experimental::RTensor<float> x_tensor({num_rows, num_columns});
     
     // Fill the RTensor with the data from the RDataFrame
-    DataLoader<float, std::make_index_sequence<4>>
+    ChunkLoader<float, std::make_index_sequence<4>>
         func(x_tensor, num_columns, num_rows, random_order);
 
     // TODO: think about how to add this

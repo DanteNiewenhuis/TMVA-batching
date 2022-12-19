@@ -6,10 +6,11 @@
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RDF/RDatasetSpec.hxx"
+#include "TFile.h"
 
-#include "DataLoader.C"
+#include "ChunkLoader.C"
 
-class BatchGeneratorHelper
+class BatchLoader
 {
 private:
     size_t current_row = 0, batch_size, num_rows = 0, num_columns;
@@ -23,16 +24,16 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructors
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    BatchGeneratorHelper(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
+    BatchLoader(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
                 : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
                     x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
                 }
     
-    BatchGeneratorHelper(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
+    BatchLoader(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
                 bool drop_last=true) 
                 : x_tensor(x_tensor), batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
 
-    BatchGeneratorHelper(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
+    BatchLoader(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
                 const size_t num_columns, bool drop_last=true) 
                 : x_tensor(x_tensor), batch_size(batch_size), num_rows(num_rows), num_columns(num_columns), drop_last(drop_last) {}
 
@@ -113,17 +114,24 @@ public:
 class BatchGenerator 
 {
 private:
+    ROOT::RDataFrame* x_rdf;
     std::vector<std::string> cols;
-    size_t num_columns, chunk_size, max_chunks, batch_size, current_row=0, entries;
+    size_t num_columns, chunk_size, current_row=0, max_chunks, batch_size, entries;
 
     string file_name, tree_name;
 
     bool EoF = false;
 
     TMVA::Experimental::RTensor<float>* x_tensor;
-    BatchGeneratorHelper* helper;
+    BatchLoader* helper;
 
 public:
+    // BatchGenerator(ROOT::RDataFrame& x_rdf, std::vector<std::string> cols, size_t chunk_size, size_t batch_size, size_t max_chunks):
+    //     x_rdf(x_rdf), cols(cols), num_columns(cols.size()), chunk_size(chunk_size), max_chunks(max_chunks), batch_size(batch_size) {
+        
+    //     x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
+    //     helper = new BatchLoader(batch_size, num_columns);
+    // }
 
     BatchGenerator(string file_name, string tree_name, std::vector<std::string> cols, size_t chunk_size, size_t batch_size, size_t max_chunks):
         file_name(file_name), tree_name(tree_name), cols(cols), num_columns(cols.size()), chunk_size(chunk_size), max_chunks(max_chunks), batch_size(batch_size) {
@@ -135,32 +143,25 @@ public:
 
         std::cout << entries << std::endl;
 
+        x_rdf = new ROOT::RDataFrame(tree_name, file_name);
+
         x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
-        helper = new BatchGeneratorHelper(batch_size, num_columns);
+        helper = new BatchLoader(batch_size, num_columns);
     }
 
     void load_chunk() 
     {
         std::cout << "load_chunk " << current_row << std::endl;
-        DataLoader<float, std::make_index_sequence<20>> func((*x_tensor), num_columns, chunk_size);
+        ChunkLoader<float, std::make_index_sequence<20>> func((*x_tensor), num_columns, chunk_size);
 
-        // Create DataFrame        
-        long long start_l = current_row;
-        long long end_l = start_l + chunk_size;
-        ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec(tree_name, 
-                                                file_name, {start_l, std::numeric_limits<Long64_t>::max()});
-        ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
+        auto myCount = x_rdf->Range(current_row, current_row + chunk_size).Count();
 
-        auto myCount = x_rdf.Range(0, chunk_size).Count();
-
-        x_rdf.Range(0, chunk_size).Foreach(func, cols);
+        x_rdf->Range(current_row, current_row + chunk_size).Foreach(func, cols);
 
         size_t loaded_size = myCount.GetValue();
-        if (loaded_size < chunk_size) {
-            EoF = true;
-        }
 
         helper->SetTensor(x_tensor, loaded_size);
+
         current_row += chunk_size;
     }
 
