@@ -9,41 +9,48 @@
 
 // Include my classes
 #include "DataLoader.C"
-#include "BatchGenerator.C"
+#include "BatchGeneratorSpec.C"
 
 #include <chrono>
+#include <fstream>
 
 void myBatcher()
 {
+    ofstream myFile;
+    myFile.open("results/benchmark_DatasetSpec_100_000.txt");
+    myFile << "0,";
+
     // Define variables
-    // std::vector<std::string> cols = {"m_jj", "m_jjj", "m_jlv", "m_lv"};
-    size_t batch_size = 2000, chunk_size = 1000001, max_chunks = 20000;
+    std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
+                                     "fjet_ECF3", "fjet_L2", "fjet_L3", "fjet_Qw", "fjet_Split12", 
+                                     "fjet_Split23", "fjet_Tau1_wta", "fjet_Tau2_wta", 
+                                     "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", 
+                                     "fjet_eta", "fjet_m", "fjet_phi", "fjet_pt", "weights"};
+    size_t batch_size = 2000, chunk_size = 100000, max_chunks = 20000;
 
     // Load the RDataFrame and create a new tensor
-    ROOT::RDataFrame x_rdf = ROOT::RDataFrame("test_tree", "data/Higgs_data_full.root");
-    std::vector<std::string> cols = x_rdf.GetColumnNames();
+    // ROOT::RDataFrame x_rdf = ROOT::RDataFrame("sig_tree", "data/h5train_combined.root");
+    // std::vector<std::string> cols = x_rdf.GetColumnNames();
 
-
-    BatchGenerator generator(x_rdf, cols, chunk_size, batch_size, max_chunks);
-    
     auto start = std::chrono::steady_clock::now();
+
+    BatchGenerator generator("data/h5train_combined.root", "sig_tree", cols, chunk_size, batch_size, max_chunks);
+
     size_t i = 0;
     while(true) {
         auto batch = generator.get_batch();
-        // if (i % 50 == 0) {
-
-        //     std::cout << i << std::endl;
-        // }
+        // std::cout << (*batch) << std::endl;
         i++;
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
 
+        myFile << elapsed_seconds.count() << ",";
         if (batch->GetSize() == 0) {
             break;
         }
     }
 
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
+    myFile.close();
 
 }
 
