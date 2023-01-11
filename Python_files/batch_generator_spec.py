@@ -34,7 +34,6 @@ size_t load_chunk(TMVA::Experimental::RTensor<float>& x_tensor, string file_name
 """)
 
 
-
 class Generator:
 
     def __init__(self, file_name, tree_name, columns: list[str], chunk_rows: int, 

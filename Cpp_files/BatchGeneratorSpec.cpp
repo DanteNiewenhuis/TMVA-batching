@@ -151,6 +151,8 @@ public:
                                                 file_name, {start_l, std::numeric_limits<Long64_t>::max()});
         ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
 
+        // add filter
+
         auto myCount = x_rdf.Range(0, chunk_size).Count();
 
         x_rdf.Range(0, chunk_size).Foreach(func, cols);

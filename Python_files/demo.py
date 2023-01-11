@@ -18,7 +18,7 @@ generator = Generator(file_name, tree_name, columns, chunk_rows, batch_rows, use
 for i, batch in enumerate(generator):
     print(f"batch {i}, {batch}")
 
-raise NotImplementedError
+
 ###################################################################################################
 ## AI example
 ###################################################################################################
