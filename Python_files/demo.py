@@ -1,25 +1,24 @@
 import ROOT
-from batch_generator_parralel import Generator
+from batch_generator_spec import Generator
+import torch
 
 main_folder = "../"
 
 columns = ["m_jj", "m_jjj", "m_jlv"] 
-# x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/Higgs_data_full.root", columns)
-x_rdf = ROOT.RDataFrame("sig_tree", f"{main_folder}data/r0-20.root", columns)
 
-x_filter = x_rdf.Filter("m_jj < 1")
+tree_name = "sig_tree"
+file_name = f"{main_folder}data/h5train_combined.root"
 
 num_columns = len(columns)
-batch_rows = 2
-chunk_rows = 5
+batch_rows = 1054
+chunk_rows = 500_000
 
-generator = Generator(x_filter, columns, chunk_rows, batch_rows, use_whole_file=True)
+generator = Generator(file_name, tree_name, columns, chunk_rows, batch_rows, use_whole_file=True)
 
 for i, batch in enumerate(generator):
     print(f"batch {i}, {batch}")
 
 raise NotImplementedError
-
 ###################################################################################################
 ## AI example
 ###################################################################################################

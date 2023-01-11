@@ -25,7 +25,7 @@ num_columns = len(columns)
 batch_size = batch_rows*num_columns
 
 
-# ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGeneratorSpec.C"')
+# ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGeneratorSpec.cpp"')
 def test_Cpp():
 
     print("Testing Cpp")

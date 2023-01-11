@@ -9,8 +9,8 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-// #include "ChunkLoader.C"
-#include "BatchGeneratorSpec.C"
+// #include "ChunkLoader.cpp"
+#include "BatchGeneratorSpec.cpp"
 #include "ROOT/RDF/RDatasetSpec.hxx"
 
 // Timing
@@ -217,5 +217,5 @@ void chunk_test(size_t chunk_size, string name) {
 
 void benchmark()
 {
-    generator_test(1000000, "h5");
+    generator_test(100000, "h5");
 }
