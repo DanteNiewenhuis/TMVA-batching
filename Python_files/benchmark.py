@@ -6,9 +6,12 @@ import time
 import matplotlib.pyplot as plt
 
 main_folder = "../"
+file_name = f"{main_folder}data/Higgs_data_full.root"
+tree_name = "test_tree"
+
 
 columns = ["m_jj", "m_jjj", "m_jlv"] 
-x_rdf = ROOT.RDataFrame("test_tree", f"{main_folder}data/Higgs_data_full.root")
+x_rdf = ROOT.RDataFrame(tree_name, file_name)
 
 columns = x_rdf.GetColumnNames()
 
@@ -17,7 +20,7 @@ batch_rows = 2000
 chunk_rows = 10_000
 
 start = time.time()
-generator = Generator(x_rdf, columns, chunk_rows, batch_rows, use_whole_file=True)
+generator = Generator(file_name, tree_name, columns, chunk_rows, batch_rows, use_whole_file=True)
 
 middle = time.time()
 

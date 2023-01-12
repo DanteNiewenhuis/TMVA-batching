@@ -8,8 +8,7 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-#include "ChunkLoader.cpp"
-#include "BatchGeneratorSpec.cpp"
+#include "../BatchGenerator.cpp"
 
 #include <chrono>
 #include <fstream>
