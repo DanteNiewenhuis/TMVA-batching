@@ -8,7 +8,7 @@
 #include "ROOT/RDF/RDatasetSpec.hxx"
 #include "TFile.h"
 
-#include "ChunkLoader.C"
+#include "ChunkLoader.cpp"
 
 class BatchLoader
 {

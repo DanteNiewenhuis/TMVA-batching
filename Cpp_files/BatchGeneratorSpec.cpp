@@ -7,7 +7,7 @@
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RDF/RDatasetSpec.hxx"
 
-#include "ChunkLoader.C"
+#include "ChunkLoader.cpp"
 
 class BatchLoader
 {
@@ -150,6 +150,8 @@ public:
         ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec(tree_name, 
                                                 file_name, {start_l, std::numeric_limits<Long64_t>::max()});
         ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
+
+        // add filter
 
         auto myCount = x_rdf.Range(0, chunk_size).Count();
 

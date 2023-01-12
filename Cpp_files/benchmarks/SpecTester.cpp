@@ -10,8 +10,8 @@
 #include "ROOT/RDF/RDatasetSpec.hxx"
 
 // Include my classes
-#include "ChunkLoader.C"
-#include "BatchGenerator.C"
+#include "ChunkLoader.cpp"
+#include "BatchGenerator.cpp"
 
 void load_chunk_base(size_t chunk_size = 1000, size_t start_row = 0, size_t batch_size = 100) {
     std::vector<std::string> cols = {"fjet_C2", "fjet_D2", "fjet_ECF1", 

@@ -8,8 +8,8 @@ main_folder = "../"
 
 def load_functor(num_columns):
     # Import myBatcher.C
-    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/ChunkLoader.C"')
-    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/ChunkLoader.cpp"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
     # Create C++ function
     ROOT.gInterpreter.ProcessLine("""

@@ -7,7 +7,7 @@
 #include "ROOT/RDF/RDatasetSpec.hxx"
 #include "ROOT/RDataFrame.hxx"
 
-#include "ChunkLoader.C"
+#include "ChunkLoader.cpp"
 #include <chrono>
 
 void AsTensorBenchmark() {

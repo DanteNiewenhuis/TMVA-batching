@@ -8,8 +8,8 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Include my classes
-#include "ChunkLoader.C"
-#include "BatchGenerator.C"
+#include "ChunkLoader.cpp"
+#include "BatchGenerator.cpp"
 
 void loadTwoRDataFrames()
 {
