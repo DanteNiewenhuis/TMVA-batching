@@ -6,21 +6,22 @@ import time
 import matplotlib.pyplot as plt
 
 main_folder = "../"
-file_name = f"{main_folder}data/Higgs_data_full.root"
-tree_name = "test_tree"
+file_name = f"{main_folder}data/r0-10.root"
+tree_name = "sig_tree"
 
 
 columns = ["m_jj", "m_jjj", "m_jlv"] 
+filters = ["m_jj < 0.9"]
 x_rdf = ROOT.RDataFrame(tree_name, file_name)
 
 columns = x_rdf.GetColumnNames()
 
 num_columns = len(columns)
-batch_rows = 2000
-chunk_rows = 10_000
+batch_rows = 1
+chunk_rows = 2
 
 start = time.time()
-generator = Generator(file_name, tree_name, columns, chunk_rows, batch_rows, use_whole_file=True)
+generator = Generator(file_name, tree_name, columns, filters, chunk_rows, batch_rows, use_whole_file=True)
 
 middle = time.time()
 
@@ -28,21 +29,10 @@ print(f"loading took: {middle - start}")
 
 times = [0]
 
-i = 0
-goal = 5_000
-while i < goal:
-    for batch in enumerate(generator):
-        times.append(time.time() - middle)
-        
-        if (i % 50 == 0):
-            print(f"batch {i}")
+for batch in generator:
+    print(batch)
 
-        if i >= goal:
-            break
-        
-        i += 1
-
-    print("loop done")
+    times.append(time.time() - middle)
 
 # for i, batch in enumerate(generator):
 #     times.append(time.time() - middle)
