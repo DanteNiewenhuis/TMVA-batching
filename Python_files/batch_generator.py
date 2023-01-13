@@ -101,8 +101,6 @@ class Generator:
         self.generator = ROOT.BatchLoader(self.batch_rows, self.num_columns)
 
     def load_chunk(self):
-        print(f"{self.current_row = }")
-
         # Fill x_tensor and get the number of rows that were processed
         progressed_size, loaded_size = ROOT.load_chunk(self.x_tensor, self.file_name, self.tree_name, self.filters,
                                      self.columns, self.num_columns, self.chunk_rows, self.current_row, False)
@@ -125,10 +123,10 @@ class Generator:
             batch = self.generator()
             data = batch.GetData()
             data.reshape((self.batch_size,))
-            return torch.Tensor(data).view(self.batch_rows, self.num_columns)
+            return_data = np.array(data).reshape(self.batch_rows, self.num_columns)
+            return return_data[:,:-1], return_data[:,-1]
 
         # Load the next chunk
-        self.current_chunck += 1
         if (self.current_row < self.entries):
             self.load_chunk()
             return self.__next__()
