@@ -6,16 +6,29 @@
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 
+// Primary template for the ChunkLoader class. 
+// Required for the second class template to work
+template <typename F, typename U>
+class ChunkLoader;
+
 // ChunkLoader class used to load content of a RDataFrame onto a RTensor.
-template <typename First, typename... Rest>
-class ChunkLoader
+template <typename T, std::size_t... N>
+class ChunkLoader<T, std::index_sequence<N...>>
 {
+    // Magic used to make make_index_sequence work.
+    // Code is based on the SofieFunctorHelper
+    template <std::size_t Idx>
+    using AlwaysT = T;
+
+    std::vector<std::vector<T>> fInput;
 
 private:
-    size_t current_row = 0, offset = 0;
+    size_t final_row, num_columns, current_row = 0;
     float label;
     bool add_label;
     
+
+    std::vector<size_t> row_order;
     TMVA::Experimental::RTensor<float>& x_tensor;
 
 public:
@@ -23,37 +36,37 @@ public:
     // Constructor
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, bool add_label=false, float label=0)
-        : x_tensor(x_tensor), add_label(add_label), label(label)
+    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, const size_t num_columns, const size_t final_row, size_t starting_row=0, 
+               bool add_label=false, float label=0)
+        : x_tensor(x_tensor), num_columns(num_columns), final_row(final_row), current_row(starting_row), add_label(add_label), label(label)
     {}
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Value assigning
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
     // Assign the values of a given row to the TMVA::Experimental::RTensor
-    template <typename First_T> 
-    void assign_to_tensor(First_T first)
+    template <typename First_T>
+    void assign_to_tensor(size_t offset, size_t i, First_T first)
     {
-        x_tensor.GetData()[offset++] = first;
+        x_tensor.GetData()[offset + i] = first;
 
         if (add_label) {
-            x_tensor.GetData()[offset++] = label;
+            x_tensor.GetData()[offset + i + 1] = label;
         }
+    }
+    template <typename First_T, typename... Rest_T>
+    void assign_to_tensor(size_t offset, size_t i, First_T first, Rest_T... rest)
+    {
+        x_tensor.GetData()[offset + i] = first;
+        assign_to_tensor(offset, ++i, std::forward<Rest_T>(rest)...);
     }
 
     // Load the values of a row onto a random row of the Tensor
-    template <typename First_T, typename... Rest_T> 
-    void assign_to_tensor(First_T first, Rest_T... rest)
+    void operator()(AlwaysT<N>... values)
     {
-        x_tensor.GetData()[offset++] = first;
 
-        assign_to_tensor(std::forward<Rest_T>(rest)...);
-    }
+        assign_to_tensor(current_row * num_columns , 0, std::forward<AlwaysT<N>>(values)...);
 
-    void operator()(First first, Rest... rest) 
-    {
-        assign_to_tensor(std::forward<First>(first), std::forward<Rest>(rest)...);
         current_row++;
     }
 

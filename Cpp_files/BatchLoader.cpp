@@ -8,10 +8,13 @@
 class BatchLoader
 {
 private:
-    size_t current_row = 0, batch_size, num_rows = 0, num_columns;
-    TMVA::Experimental::RTensor<float>* x_tensor;
+    size_t current_row = 0, num_rows = 0;
+    TMVA::Experimental::RTensor<float>* x_tensor; 
     TMVA::Experimental::RTensor<float>* x_batch;
-    bool drop_last;
+
+    const size_t batch_size, num_columns;
+
+    const bool drop_last;
 
     std::vector<size_t> row_order;
 
@@ -19,7 +22,7 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructors
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    BatchLoader(const size_t batch_size, const size_t num_columns, bool drop_last=true) 
+    BatchLoader(const size_t batch_size, const size_t num_columns, const bool drop_last=true) 
                 : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
                     x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
                 }
@@ -42,7 +45,9 @@ public:
 
             // Look at std::copy
 
-            std::copy(x_tensor->GetData() + (idx[i]*num_columns), x_tensor->GetData() + ((idx[i]+1)*num_columns), x_batch->GetData() + i*num_columns);
+            std::copy(x_tensor->GetData() + (idx[i]*num_columns), 
+                      x_tensor->GetData() + ((idx[i]+1)*num_columns), 
+                      x_batch->GetData() + i*num_columns);
 
         }
     }

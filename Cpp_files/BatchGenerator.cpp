@@ -9,6 +9,8 @@
 #include "ChunkLoader.cpp"
 #include "BatchLoader.cpp"
 
+
+template<typename... Args>
 class BatchGenerator 
 {
 private:
@@ -32,16 +34,18 @@ public:
         TTree* t = f->Get<TTree>(tree_name.c_str());
         entries = t->GetEntries();
 
-        std::cout << entries << std::endl;
+        std::cout << "found " << entries << " entries in file." << std::endl;
 
         x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
+        
+        std::cout << "batch_size: " << batch_size << std::endl;
         batch_loader = new BatchLoader(batch_size, num_columns);
     }
 
     void load_chunk() 
     {
         std::cout << "load_chunk starting at row: " << current_row << std::endl;
-        ChunkLoader<float, std::make_index_sequence<3>> func((*x_tensor), num_columns, chunk_size);
+        ChunkLoader<Args...> func((*x_tensor), num_columns, chunk_size);
 
         // Create DataFrame        
         long long start_l = current_row;
@@ -89,6 +93,10 @@ public:
             passed_events = myCount.GetValue();
         }
 
+        std::cout << (*x_tensor) << std::endl;
+        std::cout << progressed_events << std::endl;
+        std::cout << passed_events << std::endl;
+
         batch_loader->SetTensor(x_tensor, passed_events);
         current_row += progressed_events;
     }
@@ -97,6 +105,7 @@ public:
     {   
         // get the next batch if available
         if (batch_loader->HasData()) {
+            std::cout << "batch available" << std::endl;
             return (*batch_loader)();
         }
 
