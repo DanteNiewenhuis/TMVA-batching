@@ -6,35 +6,31 @@
 
 template<typename First, typename... Rest>
 class Printer {
-private:
-    int test = 5;
-
 
 public:
-    void print_inp(First inp) {
-        std::cout << "final print: " << test << std::endl;
-        std::cout << inp << std::endl;
+
+    void operator()(First first) {
+        std::cout << first << std::endl;
     }
 
-    void print_inp(First inp, Rest... args) {
-        std::cout << "middle print: " << test << std::endl;
-        std::cout << inp << std::endl;
-
-        print_inp(std::forward<Rest>(args)...);
-    }
-
-    void operator()(First inp, Rest... rest) {
-        std::cout << "operator " << inp << std::endl;
+    void operator()(First first, Rest... rest) {
+        std::cout << first << std::endl;
+        (*this)(std::forward<Rest>(rest)...);
     }
 };
 
+template<typename... Args>
+void wrapper(float x, float y) {
+
+    Printer<Args...> printer;
+
+    printer(3, 5);
+}
 
 void template_tester() {
     std::cout << "template tester" << std::endl;
 
-    Printer<float, float> printer;
-
-    printer.print_inp(1, 2);
+    wrapper<int, int>(2.1, 3.76);
 
 }
 
