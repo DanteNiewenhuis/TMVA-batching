@@ -8,8 +8,8 @@ main_folder = "../"
 
 def load_functor(num_columns):
     # Import myBatcher.C
-    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/DataLoader.C"')
-    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.C"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/ChunkLoader.cpp"')
+    ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
     # Create C++ function
     ROOT.gInterpreter.ProcessLine("""
@@ -19,7 +19,7 @@ size_t load_data(TMVA::Experimental::RTensor<float>& x_tensor, ROOT::RDF::RNode 
 {
     
     // Fill the RTensor with the data from the RDataFrame
-""" + f"DataLoader<float, std::make_index_sequence<{num_columns}>>" + """
+""" + f"ChunkLoader<float, std::make_index_sequence<{num_columns}>>" + """
         func(x_tensor, num_columns, chunk_rows, random_order);
     auto myCount = x_rdf.Range(start_row, start_row + chunk_rows).Count();
     x_rdf.Range(start_row, start_row + chunk_rows).Foreach(func, cols);
@@ -53,7 +53,7 @@ class Generator:
         self.tensor_length = [0, 0]
         self.current_tensor_idx = 0
 
-        self.generator = ROOT.BatchGenerator(self.batch_rows, self.num_columns)
+        self.generator = ROOT.BatchLoader(self.batch_rows, self.num_columns)
         self.EoF = False
 
     def load_chunk(self, tensor_idx: int):
@@ -63,20 +63,20 @@ class Generator:
             return
 
         start = self.chunks_loaded * self.chunk_rows
-        print(f"load_chunk => Loading new data: {self.chunks_loaded = }")
+        # print(f"load_chunk => Loading new data: {self.chunks_loaded = }")
 
         # Fill tensor_idx and get the number of rows that were processed
         self.tensor_length[tensor_idx] = ROOT.load_data(self.x_tensors[tensor_idx], self.x_node, self.columns, 
                                                         self.num_columns, self.chunk_rows, start, False)
 
-        print(f"load_chunk => Done loading: {self.chunks_loaded = }")
+        # print(f"load_chunk => Done loading: {self.chunks_loaded = }")
         self.chunks_loaded += 1
 
         if self.tensor_length[tensor_idx] < self.chunk_rows:
             self.EoF = True
 
     def next_chunk(self):
-        print("next chunk")
+        # print("next chunk")
         
         self.thread.join()
         next_tensor_idx = abs(1-self.current_tensor_idx)
@@ -84,7 +84,7 @@ class Generator:
         self.generator.SetTensor(self.x_tensors[next_tensor_idx], self.tensor_length[next_tensor_idx])
         
         # check if more chuncks need to be loaded
-        if (self.chunks_loaded >= self.num_chunks):
+        if not self.use_whole_file and (self.chunks_loaded >= self.num_chunks):
             self.EoF = True
             return
 
@@ -96,12 +96,15 @@ class Generator:
 
 
     def __iter__(self):
+        self.EoF = False
+        self.chunks_loaded = 0
+
         # Load the first chunk into the current_tensor
         self.load_chunk(self.current_tensor_idx)
         self.generator.SetTensor(self.x_tensors[self.current_tensor_idx], 
                                  self.tensor_length[self.current_tensor_idx])
 
-        # Load the first chunk into the next_tensor TODO: make parallel
+        # Load the first chunk into the next_tensor
         next_tensor_idx = abs(1-self.current_tensor_idx)
         self.thread = Thread(target=self.load_chunk, args=(next_tensor_idx,))
         self.thread.start()
