@@ -1,5 +1,6 @@
 import ROOT
 import numpy as np
+import time
 
 main_folder = "../"
 
@@ -130,6 +131,7 @@ class Generator:
     # Return a batch when available
     def __next__(self) -> ROOT.TMVA.Experimental.RTensor:
         if (self.generator.HasData()):
+            time.sleep(1)
             batch = self.generator()
             data = batch.GetData()
             data.reshape((self.batch_size,))
