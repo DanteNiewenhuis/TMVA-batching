@@ -26,7 +26,7 @@ private:
     BatchLoader* batch_loader;
 
     std::thread loading_thread;
-    bool thread_started = false;
+    bool thread_started = false, initialized = false;
 
     bool EoF = false;
 
@@ -114,7 +114,11 @@ public:
     }
 
     void init() {
-        std::cout << "INIT" << std::endl;
+        // needed to make sure nothing crashes when executing init multiple times.
+        // TODO: look for better solution
+        if (thread_started) {
+            loading_thread.join();
+        }
 
         EoF = false;
         training_tensor = 0;
@@ -127,6 +131,7 @@ public:
         loading_thread = std::thread(&BatchGenerator::LoadChunk, this, loading_tensor);
         
         thread_started = true;
+        initialized = true;
 
         // set tensor
         batch_loader->SetTensor(x_tensors[training_tensor], tensor_lengths[training_tensor]);
@@ -156,6 +161,10 @@ public:
     // Returns empty RTensor otherwise.
     TMVA::Experimental::RTensor<float>* GetBatch()
     {   
+        if (!initialized) {
+            init();
+        }
+
         // Get next batch if available
         if (batch_loader->HasData()) {
             return (*batch_loader)();
