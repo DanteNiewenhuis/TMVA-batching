@@ -40,7 +40,7 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Batch function
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    void fillBatch(std::vector<size_t> idx) {
+    void FillBatch(std::vector<size_t> idx) {
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
             offset = idx[i]*num_columns;
@@ -52,14 +52,14 @@ public:
         }
     }
 
-    void randomize_order() {
+    void RandomizeOrder() {
         std::random_shuffle(row_order.begin(), row_order.end());
     }
 
     size_t next() 
     {
         if (current_row >= num_rows) {
-            randomize_order();
+            RandomizeOrder();
             current_row = 0;
         }
         return row_order[current_row++];
@@ -75,7 +75,7 @@ public:
                 idx[i] = next();
             }
 
-            fillBatch(idx);
+            FillBatch(idx);
 
             return x_batch;
         }
@@ -105,7 +105,7 @@ public:
 
         row_order = std::vector<size_t>(num_rows);
         std::iota(row_order.begin(), row_order.end(), 0);
-        randomize_order();
+        RandomizeOrder();
     }
 
 };

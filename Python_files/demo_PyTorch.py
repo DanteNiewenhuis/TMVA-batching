@@ -1,5 +1,5 @@
 import ROOT
-from batch_generator import Generator
+from batch_generator import BatchGenerator
 import torch
 
 main_folder = "../"
@@ -21,9 +21,9 @@ filters = []
 
 num_columns = len(columns)
 batch_rows = 1024
-chunk_rows = 800_000
+chunk_rows = 100_000
 
-generator = Generator(file_name, tree_name, columns, filters, chunk_rows, batch_rows, target="Type")
+generator = BatchGenerator(file_name, tree_name, chunk_rows, batch_rows, target="Type")
 
 ###################################################################################################
 ## AI example

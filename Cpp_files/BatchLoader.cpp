@@ -18,32 +18,16 @@ private:
 
     std::vector<size_t> row_order;
 
-public:
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Constructors
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    BatchLoader(const size_t batch_size, const size_t num_columns, const bool drop_last=true) 
-                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
-                    x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
-                }
-    
-    BatchLoader(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_columns, 
-                bool drop_last=true) 
-                : x_tensor(x_tensor), batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {}
+    // Randomize the order of the indices
+    void RandomizeOrder() {
+        std::random_shuffle(row_order.begin(), row_order.end());
+    }
 
-    BatchLoader(TMVA::Experimental::RTensor<float>* x_tensor, const size_t batch_size, const size_t num_rows, 
-                const size_t num_columns, bool drop_last=true) 
-                : x_tensor(x_tensor), batch_size(batch_size), num_rows(num_rows), num_columns(num_columns), drop_last(drop_last) {}
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Batch function
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    void fillBatch(std::vector<size_t> idx) {
+    // Fil the batch with rows from the chunk based on the given idx
+    void FillBatch(std::vector<size_t> idx) {
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
             offset = idx[i]*num_columns;
-
-            // Look at std::copy
 
             std::copy(x_tensor->GetData() + (idx[i]*num_columns), 
                       x_tensor->GetData() + ((idx[i]+1)*num_columns), 
@@ -52,30 +36,30 @@ public:
         }
     }
 
-    void randomize_order() {
-        std::random_shuffle(row_order.begin(), row_order.end());
-    }
+public:
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Constructors
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    BatchLoader(const size_t batch_size, const size_t num_columns, const bool drop_last=true) 
+                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
+                    x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
+                }
 
-    size_t next() 
-    {
-        if (current_row >= num_rows) {
-            randomize_order();
-            current_row = 0;
-        }
-        return row_order[current_row++];
-    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Batch functions
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // return a batch of data
     TMVA::Experimental::RTensor<float>* operator()()
     {
-        if (current_row + batch_size <= num_rows)
+        if (HasData())
         {
-            std::vector<size_t> idx(batch_size);
+            // Take the batch_size indices from the row_order
+            std::vector<size_t> idx{row_order.begin() + current_row, row_order.begin() + current_row + batch_size};
+            current_row += batch_size;
 
-            for (int i = 0; i < batch_size; i++) {
-                idx[i] = next();
-            }
-
-            fillBatch(idx);
+            // Fill the batchrows with the rows from the chunk
+            FillBatch(idx);
 
             return x_batch;
         }
@@ -105,7 +89,7 @@ public:
 
         row_order = std::vector<size_t>(num_rows);
         std::iota(row_order.begin(), row_order.end(), 0);
-        randomize_order();
+        RandomizeOrder();
     }
 
 };

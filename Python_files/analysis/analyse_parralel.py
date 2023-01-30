@@ -7,43 +7,127 @@ import matplotlib.pyplot as plt
 main_folder = "../../"
 # %%
 
-delay = 0.1
+delay = 100000
 
-parralel = []
-with open(f"{main_folder}/results/Parralel/parralel_{delay}.csv", "r") as rf:
+parallel = []
+with open(f"{main_folder}results/Parallel/threaded_{delay}.csv", "r") as rf:
     for line in rf.readlines():
-        parralel.append(float(line))
+        parallel.append(float(line))
 
-parralel = np.array(parralel)
+parallel = np.array(parallel)
 
-# normal = []
-# with open(f"{main_folder}/results/Parralel/normal_{delay}.csv", "r") as rf:
-#     for line in rf.readlines():
-#         normal.append(float(line))
+single = []
+with open(f"{main_folder}results/Parallel/not_threaded_{delay}.csv", "r") as rf:
+    for line in rf.readlines():
+        single.append(float(line))
 
-# normal = np.array(normal)
+single = np.array(single)
+
+normal = []
+with open(f"{main_folder}results/Parallel/normal_{delay}.csv", "r") as rf:
+    for line in rf.readlines():
+        normal.append(float(line))
+
+normal = np.array(normal)
+
 
 # %%
 
-plt.plot(parralel)
-# plt.plot(normal)
+plt.plot(parallel[:5000], label="Parallel")
+plt.plot(single[:5000], label="Single")
+plt.plot(normal[:5000], label="Normal")
+plt.legend()
+plt.show()
 
+# %%
+
+diff_par = parallel[1:] - parallel[:-1]
+diff_single = single[1:] - single[:-1]
+diff_normal = normal[1:] - normal[:-1]
+
+# %%
+plt.plot(diff_normal)
+
+# %%
+
+
+delay = 0.1
+
+parallel = []
+with open(f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r") as rf:
+    for line in rf.readlines():
+        parallel.append(float(line))
+
+parallel = np.array(parallel)
+single = []
+with open(f"{main_folder}results/Parallel/python_single_{delay*1_000_000:.0f}.csv", "r") as rf:
+    for line in rf.readlines():
+        single.append(float(line))
+
+single = np.array(single)
+
+plt.plot(parallel, label="parallel")
+plt.plot(single, label="single")
+plt.legend()
+plt.savefig(f"{main_folder}results/Images/Parallel/Parallel_vs_Single{delay*1_000_000:.0f}.png")
+plt.show()
+
+# %%
+parallel_norm = parallel - (np.arange(len(parallel)) * delay)
+single_norm = single - (np.arange(len(single)) * delay)
+
+plt.plot(parallel_norm, label="parallel")
+plt.plot(single_norm, label="single")
 plt.show()
 # %%
 
-diff_parralel = parralel[1:] - parralel[:-1]
-# diff_normal = normal[1:] - normal[:-1]
+delays = [0.0001, 0.001, 0.01, 0]
 
+data = []
 
-loading_parralel = np.array([diff_parralel[i] for i in range(len(diff_parralel)) if i%195 == 0])
-# loading_normal = np.array([diff_normal[i] for i in range(len(diff_normal)) if i%195 == 0])
+for delay in delays:
 
-batching_parralel = np.array([diff_parralel[i] for i in range(len(diff_parralel)) if i%195 != 0])
-# batching_normal = np.array([diff_normal[i] for i in range(len(diff_normal)) if i%195 != 0])
+    parallel = []
+
+    with open(f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r") as rf:
+        for line in rf.readlines():
+            parallel.append(float(line))
+
+    parallel = np.array(parallel)
+
+    data.append(parallel)
+
+print(len(data))
 
 
 # %%
+norms = []
 
-print(loading_parralel)
+for delay, line in zip(delays, data):
+    norm = line - np.arange(len(line)) * delay
+    norms.append(norm)
+    plt.plot(norm, label=delay)
 
+# plt.plot(data[0], label=delays[0])
+
+plt.legend()
+
+plt.savefig(f"{main_folder}results/Images/Parallel_comparison.png")
+
+plt.show()
+
+# %%
+
+parallel_norm = parallel - np.arange(len(parallel)) * delay
+single_norm = single - np.arange(len(single)) * delay
+
+plt.plot(parallel_norm, label="parallel")
+plt.plot(single_norm, label="single")
+plt.show()
+# %%
+
+plt.hist(norms[2])
+plt.hist(norms[3])
+
+plt.show()
 # %%

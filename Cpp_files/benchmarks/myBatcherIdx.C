@@ -94,7 +94,7 @@ public:
         // Create a vector with elements 0...num_rows
         row_order = std::vector<size_t>(num_rows);
         std::iota(row_order.begin(), row_order.end(), 0);
-        randomize_order();
+        RandomizeOrder();
 
         // Fill the RTensor with the data from the RDataFrame
         ChunkLoader<float, std::make_index_sequence<4>>
@@ -102,12 +102,12 @@ public:
         x_rdf.Foreach(func, cols);
     }
 
-    void randomize_order() {
+    void RandomizeOrder() {
         std::random_shuffle(row_order.begin(), row_order.end());
     }
 
 
-    void fillBatch(std::vector<size_t> idx) {
+    void FillBatch(std::vector<size_t> idx) {
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
             offset = idx[i]*num_columns;
@@ -120,7 +120,7 @@ public:
     {
         if (current_row >= num_rows) {
             std::cout << "New Epoch" << std::endl;
-            randomize_order();
+            RandomizeOrder();
             current_row = 0;
         }
         return row_order[current_row++];
@@ -133,7 +133,7 @@ public:
             idx[i] = next();
         }
 
-        fillBatch(idx);
+        FillBatch(idx);
 
         return x_batch;
     }

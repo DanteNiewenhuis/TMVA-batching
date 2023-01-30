@@ -1,7 +1,19 @@
 import ROOT
-from batch_generator_parralel import Generator
+from batch_generator import Generator
 import time
 import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('-delay', type=float)
+parser.add_argument('-threaded', default=False, action=argparse.BooleanOptionalAction)
+
+args = parser.parse_args()
+delay = args.delay
+threaded = args.threaded
+
+print(threaded)
 
 main_folder = "../"
 
@@ -13,38 +25,33 @@ x_rdf = ROOT.RDataFrame(tree_name, file_name)
 start = time.time()
 columns = x_rdf.GetColumnNames()
 print(columns)
+print(len(columns))
+
 print(f"getting columns took: {time.time() - start}")
 
 # columns = ["weights", "fjet_C2", "labels"]
 filters = []
 
-chunk_rows = 2_000_000
-batch_rows = 20_000
+chunk_rows = 200_000
+batch_rows = 5
 
-start = time.time()
-generator = Generator(file_name, tree_name, columns, filters, chunk_rows, batch_rows, target="Type")
-end = time.time()
-
-print(f"creating generator took {end - start}")
+generator = Generator(file_name, tree_name, chunk_rows, batch_rows, target="Type")
 
 timings = [0]
 
-delay = 0.01
 start = time.time()
 last_time = time.time()
 for i, batch in enumerate(generator):
-    if i % 10 == 0:
-        print("TENNNNN")
+    print(batch)
+
+    break
+
+    time.sleep(delay)
 
     current_time = time.time()
-    print(f"Getting batch took: {current_time - last_time}")
     timings.append(current_time - start)
     
     last_time = current_time
-
-
-    if i == 100:
-        break
 
 
 timings = np.array(timings)
@@ -53,6 +60,7 @@ print(timings)
 diff = timings[1:] - timings[:-1]
 print(diff)
 
-# with open(f"{main_folder}results/Parralel/parralel.csv", "w") as wf:
+# name = "parallel" if threaded else "single"
+# with open(f"{main_folder}results/Parallel/python_{name}_{delay*1_000_000:.0f}.csv", "w") as wf:
 #     for timing in timings:
 #         wf.write(f"{timing}\n")

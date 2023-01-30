@@ -9,43 +9,34 @@
 #include "ChunkLoader.cpp"
 #include "BatchLoader.cpp"
 
+#include <thread>
 
 template<typename... Args>
 class BatchGenerator 
 {
 private:
     std::vector<std::string> cols, filters;
-    size_t num_columns, chunk_size, max_chunks, batch_size, current_row=0, entries;
+    size_t num_columns, chunk_size, batch_size, current_row=0, entries;
 
-    string file_name, tree_name;
+    std::string file_name, tree_name;
 
-    TMVA::Experimental::RTensor<float>* x_tensor;
+    std::vector<TMVA::Experimental::RTensor<float>*> x_tensors;
+    size_t tensor_lengths[2] = {0,0};
+    size_t training_tensor = 0, loading_tensor = 1;
     BatchLoader* batch_loader;
 
-public:
+    std::thread loading_thread;
+    bool thread_started = false;
 
-    BatchGenerator(string file_name, string tree_name, std::vector<std::string> cols, std::vector<std::string> filters, 
-                   size_t chunk_size, size_t batch_size, size_t max_chunks):
-        file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(cols.size()), chunk_size(chunk_size), 
-        max_chunks(max_chunks), batch_size(batch_size) {
-        
-        // get the number of entries in the dataframe
-        TFile* f = TFile::Open(file_name.c_str());
-        TTree* t = f->Get<TTree>(tree_name.c_str());
-        entries = t->GetEntries();
+    bool EoF = false;
 
-        std::cout << "found " << entries << " entries in file." << std::endl;
-
-        x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
-        
-        std::cout << "batch_size: " << batch_size << std::endl;
-        batch_loader = new BatchLoader(batch_size, num_columns);
-    }
-
-    void load_chunk() 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Functions
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    void LoadChunk(size_t tensor_idx) 
     {
-        std::cout << "load_chunk starting at row: " << current_row << std::endl;
-        ChunkLoader<Args...> func((*x_tensor), num_columns, chunk_size);
+        std::cout << "LoadChunk starting at row: " << current_row << std::endl;
+        ChunkLoader<Args...> func((*x_tensors[tensor_idx]));
 
         // Create DataFrame        
         long long start_l = current_row;
@@ -73,7 +64,6 @@ public:
             x_ranged.Foreach(func, cols);
 
             // get the loading info
-            myReport->Print();
             progressed_events = myReport.begin()->GetAll();
             passed_events = (myReport.end()-1)->GetPass();
         }
@@ -93,26 +83,88 @@ public:
             passed_events = myCount.GetValue();
         }
 
-        std::cout << (*x_tensor) << std::endl;
-        std::cout << progressed_events << std::endl;
-        std::cout << passed_events << std::endl;
-
-        batch_loader->SetTensor(x_tensor, passed_events);
+        tensor_lengths[tensor_idx] = passed_events;
         current_row += progressed_events;
     }
 
-    TMVA::Experimental::RTensor<float>* get_batch()
+    void SwapTensors() {
+        size_t temp = training_tensor;
+        training_tensor = loading_tensor;
+        loading_tensor = temp;
+    }
+
+public:
+
+    BatchGenerator(std::string file_name, std::string tree_name, std::vector<std::string> cols, 
+                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size):
+        file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(cols.size()), 
+        chunk_size(chunk_size), batch_size(batch_size) {
+        
+        // get the number of entries in the dataframe
+        TFile* f = TFile::Open(file_name.c_str());
+        TTree* t = f->Get<TTree>(tree_name.c_str());
+        entries = t->GetEntries();
+
+        std::cout << "found " << entries << " entries in file." << std::endl;
+
+        x_tensors.push_back(new TMVA::Experimental::RTensor<float>({chunk_size, num_columns}));
+        x_tensors.push_back(new TMVA::Experimental::RTensor<float>({chunk_size, num_columns}));
+
+        batch_loader = new BatchLoader(batch_size, num_columns);
+    }
+
+    void init() {
+        std::cout << "INIT" << std::endl;
+
+        EoF = false;
+        training_tensor = 0;
+        loading_tensor = 1;
+
+        // loading first tensor
+        LoadChunk(training_tensor);
+
+        // loading second tensor
+        loading_thread = std::thread(&BatchGenerator::LoadChunk, this, loading_tensor);
+        
+        thread_started = true;
+
+        // set tensor
+        batch_loader->SetTensor(x_tensors[training_tensor], tensor_lengths[training_tensor]);
+    }
+
+    void NextChunk() {
+        // Join threads
+        loading_thread.join();
+
+        // Swap tensors
+        SwapTensors();
+
+        // Set T_training
+        batch_loader->SetTensor(x_tensors[training_tensor], tensor_lengths[training_tensor]);
+        
+        // Load next Tensor if any data is left
+        if (current_row < entries) {
+            loading_thread = std::thread(&BatchGenerator::LoadChunk, this, loading_tensor);
+        }
+        else {
+            EoF = true;
+        }
+    }
+    
+
+    // Returns the next batch of data if available. 
+    // Returns empty RTensor otherwise.
+    TMVA::Experimental::RTensor<float>* GetBatch()
     {   
-        // get the next batch if available
+        // Get next batch if available
         if (batch_loader->HasData()) {
-            std::cout << "batch available" << std::endl;
             return (*batch_loader)();
         }
 
         // load new chunk
-        if (current_row < entries) {
-            load_chunk();
-            return get_batch();
+        if (!EoF) {
+            NextChunk();
+            return GetBatch();
         }
         
         // return empty batch if all events have been used
@@ -120,11 +172,11 @@ public:
         return tensor;
     }
 
-    bool hasData() {
-        if (current_row <= entries) {
-            return true;
+    bool HasData() {
+        if (EoF) {
+            return false;
         }
 
-        return false;
+        return true;
     }
 };
