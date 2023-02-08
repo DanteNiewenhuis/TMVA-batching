@@ -1,8 +1,8 @@
 import ROOT
-import torch
 import numpy as np
 
 main_folder = "../"
+
 
 class BatchGenerator:
 
@@ -37,7 +37,7 @@ class BatchGenerator:
 
         return columns, template_string[:-1]
 
-    def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int, 
+    def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [],  target: str = ""):
         """_summary_
 
@@ -53,7 +53,8 @@ class BatchGenerator:
         """
 
         # TODO: better linking when importing into ROOT
-        ROOT.gInterpreter.ProcessLine(f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
+        ROOT.gInterpreter.ProcessLine(
+            f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
         columns, template = self.get_template(file_name, tree_name, columns)
 
@@ -64,9 +65,9 @@ class BatchGenerator:
         self.target_given = target in columns
         if self.target_given:
             self.target_index = columns.index(target)
-        
-        self.generator = ROOT.BatchGenerator(template) \
-            (file_name, tree_name, columns, filters, chunk_rows, batch_rows)
+
+        self.generator = ROOT.BatchGenerator(template)(
+            file_name, tree_name, columns, filters, chunk_rows, batch_rows)
 
     def __iter__(self):
         print("ITER")
@@ -89,17 +90,17 @@ class BatchGenerator:
                                  Only given if a target column was specified
         """
 
-        
         batch = self.generator.GetBatch()
 
         if (batch.GetSize() > 0):
             data = batch.GetData()
             data.reshape((self.batch_size,))
-            return_data = np.array(data).reshape(self.batch_rows, self.num_columns)
+            return_data = np.array(data).reshape(
+                self.batch_rows, self.num_columns)
 
             if self.target_given:
-                return np.column_stack((return_data[:,:self.target_index], return_data[:,self.target_index+1:])), \
-                   return_data[:,self.target_index]
+                return np.column_stack((return_data[:, :self.target_index], return_data[:, self.target_index+1:])), \
+                    return_data[:, self.target_index]
             else:
                 return_data
 
