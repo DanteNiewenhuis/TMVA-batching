@@ -38,7 +38,7 @@ class BatchGenerator:
         return columns, template_string[:-1]
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, filters: list[str] = [],  target: str = ""):
+                 columns: list[str] = None, filters: list[str] = [], target: str = None, weights: str = None):
         """_summary_
 
         Args:
@@ -62,15 +62,32 @@ class BatchGenerator:
         self.num_columns = len(columns)
         self.batch_size = batch_rows * self.num_columns
 
-        self.target_given = target in columns
+        # Handle target
+        self.target_given = target is not None
         if self.target_given:
-            self.target_index = columns.index(target)
+            if target in columns:
+                self.target_index = columns.index(target)
+            else:
+                raise ValueError(
+                    f"Provided target not in given columns: \ntarget => {target}\ncolumns => {columns}")
 
+        # Handle weights
+        self.weights_given = weights is not None
+        if self.weights_given and not self.target_given:
+            raise ValueError(
+                "Weights can only be used when a target is provided")
+        if self.weights_given:
+            if weights in columns:
+                self.weights_index = columns.index(weights)
+            else:
+                raise ValueError(
+                    f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {columns}")
+
+        # Create C++ batch generator
         self.generator = ROOT.BatchGenerator(template)(
             file_name, tree_name, columns, filters, chunk_rows, batch_rows)
 
     def __iter__(self):
-        print("ITER")
         """Initialize the generator to be used for a loop
         """
         self.generator.init()
@@ -98,9 +115,24 @@ class BatchGenerator:
             return_data = np.array(data).reshape(
                 self.batch_rows, self.num_columns)
 
+            # Splice target column from the data if weight is given
             if self.target_given:
-                return np.column_stack((return_data[:, :self.target_index], return_data[:, self.target_index+1:])), \
-                    return_data[:, self.target_index]
+                target_data = return_data[:, self.target_index]
+                return_data = np.column_stack(
+                    (return_data[:, :self.target_index], return_data[:, self.target_index+1:]))
+
+                # Splice weights column from the data if weight is given
+                if self.weights_given:
+                    if self.target_index < self.weights_index:
+                        self.weights_index -= 1
+
+                    weights_data = return_data[:, self.weights_index]
+                    return_data = np.column_stack(
+                        (return_data[:, :self.weights_index], return_data[:, self.weights_index+1:]))
+                    return return_data, target_data, weights_data
+
+                return return_data, target_data
+
             else:
                 return_data
 
