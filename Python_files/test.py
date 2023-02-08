@@ -16,15 +16,17 @@ columns = x_rdf.GetColumnNames()
 
 filters = []
 
-chunk_rows = 200_000
-batch_rows = 1024
+chunk_rows = 10
+batch_rows = 10
 
 generator = BatchGenerator(file_name, tree_name, chunk_rows,
-                           batch_rows, target="Type")
+                           batch_rows, target="Type", weights="missing_energy_phi")
 
 timings = [0]
 
 start = time.time()
 last_time = time.time()
 for i, batch in enumerate(generator):
-    print(f"batch {i} => {len(batch[0])}")
+    print(f"batch {i} => {batch[0].shape}, {batch[1]}, {batch[2]}")
+
+    break
