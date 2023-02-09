@@ -37,7 +37,7 @@ private:
 
     // Randomize the order of the indices
     void CreateTasks() {
-        std::cout << "create tasks" << std::endl;
+        std::cout << "CreateTasks => Start" << std::endl;
 
         // Create a random vector of idx from 0 to chunk_size
         std::vector<size_t> row_order = std::vector<size_t>(num_rows);
@@ -54,12 +54,12 @@ private:
         task_lock.unlock();
         task_condition.notify_one();
 
-        std::cout << "created tasks" << std::endl;
+        std::cout << "CreateTasks => Done" << std::endl;
     }
 
     // Fil the batch with rows from the chunk based on the given idx
-    void FillBatch(std::vector<size_t> idx, TMVA::Experimental::RTensor<float>* outp) {
-        std::cout << "Fill Batch: " << idx[0] << std::endl;
+    void FillBatch(std::vector<size_t> idx, TMVA::Experimental::RTensor<float>* outp, size_t thread_num) {
+        // std::cout << "FillBatch " << thread_num << " => start: " << idx[0] << std::endl;
         
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
@@ -74,21 +74,24 @@ private:
         filled_batch_queue.push(outp);
         filled_batch_condition.notify_one();
         lock.unlock();
-        std::cout << "Filling done: " << idx[0] << std::endl;
+        // std::cout << "FillBatch " << thread_num << " => done: " << idx[0] << std::endl;
     }
 
-    void idle_loop() {
-        std::cout << "THREAD: start thread" << std::endl;
+    void IdleLoop(size_t thread_num) {
+        std::cout << "IdleLoop " << thread_num << " => start thread" << std::endl;
 
         std::vector<size_t> inp;
         TMVA::Experimental::RTensor<float>* outp;
 
         while(true) {
             {
+                inp = {};
+                outp = 0;
+                
                 // Wait for new tasks
                 std::unique_lock<std::mutex> lock(task_lock);
                 task_condition.wait(lock, [this]() {
-                    std::cout << "THREAD: task condition: " << task_queue.empty() << std::endl;
+                    // std::cout << "IdleLoop " << thread_num << " => task condition: " << task_queue.empty() << std::endl;
 
                     return !task_queue.empty() || !accept_tasks; });
                 
@@ -101,28 +104,38 @@ private:
                     return;
                 }
 
-                std::cout << "THREAD: getting task: " << task_queue.empty() << " " << accept_tasks << std::endl;
+                // std::cout << "IdleLoop " << thread_num << " => getting task" << std::endl;
+                if (task_queue.empty()) {
+                    std::cout << "IdleLoop " << thread_num << " => ERROR no tasks left in queue" << std::endl;
+                }
                 // get task
                 inp = task_queue.front();
                 task_queue.pop();  
                 lock.unlock();             
 
-                std::cout << "THREAD: got task " << inp[0] << std::endl;
+                // std::cout << "IdleLoop " << thread_num << " => got task " << inp[0] << std::endl;
 
                 // Wait for a batch to put the results in
                 std::unique_lock<std::mutex> lock_1(empty_batch_lock);
                 empty_batch_condition.wait(lock_1, [this]() {
-                    std::cout << "THREAD: empty condition: " << empty_batch_queue.empty() << std::endl;
+                    // std::cout << "IdleLoop " << thread_num << " => empty condition: " << empty_batch_queue.empty() << std::endl;
                     
                     return !empty_batch_queue.empty();});
+
+                // std::cout << "IdleLoop " << thread_num << " => getting empty batch" << std::endl;
+                if (empty_batch_queue.empty()) {
+                    std::cout << "IdleLoop " << thread_num << " => ERROR no empty batches left in queue" << std::endl;
+                }
+
                 outp = empty_batch_queue.front();
                 empty_batch_queue.pop();
                 // lock_1.unlock();
 
-                std::cout << "THREAD: got empty batch" << std::endl;
+                // std::cout << "IdleLoop " << thread_num << " => got empty batch " << outp->GetData()[0] << std::endl;
             }
 
-            FillBatch(inp, outp);
+            // std::cout << "IdleLoop " << thread_num << " => starting filling: " << inp[0] << " " << outp->GetData()[0] << std::endl;
+            FillBatch(inp, outp, thread_num);
         }
     }
 
@@ -134,7 +147,7 @@ public:
         : batch_size(batch_size), num_columns(num_columns), num_threads(num_threads) 
     {
         for (size_t i = 0; i < num_threads; i++) {
-            threads.push_back(std::thread(&BatchLoader::idle_loop, this));
+            threads.push_back(std::thread(&BatchLoader::IdleLoop, this, i));
         }
         
         for (size_t i = 0; i < num_batches; i++) {
@@ -155,11 +168,14 @@ public:
     // return a batch of data
     TMVA::Experimental::RTensor<float>* GetBatch()
     {
-        std::cout << "GetBatch" << std::endl;
+        // std::cout << "GetBatch => start" << std::endl;
 
         std::unique_lock<std::mutex> lock(filled_batch_lock);
         filled_batch_condition.wait(lock, [this]() {
-            std::cout << "filled condition: " << filled_batch_queue.empty() << " " << (finished_threads == num_threads) << std::endl;
+            // std::cout << "GetBatch => filled condition: " << filled_batch_queue.empty() << std::endl 
+            //           << "            finished theads: " << finished_threads << std::endl
+            //           << "            num threads: " << num_threads << std::endl
+            //           << "            finished condition: " << (finished_threads == num_threads) << std::endl;
             
             return !filled_batch_queue.empty() || (finished_threads == num_threads);});
         
@@ -173,38 +189,38 @@ public:
     }
 
     bool HasData() {
-        std::cout << "HasData" << std::endl;
+        // std::cout << "HasData => start" << std::endl;
         std::unique_lock<std::mutex> lock_1(filled_batch_lock);
         if (!filled_batch_queue.empty()) {
             return true;
         }
         lock_1.unlock();
 
-        std::cout << "no filled batches" << std::endl;
+        // std::cout << "HasData => no filled batches" << std::endl;
 
         std::unique_lock<std::mutex> lock_2(task_lock);
         if (!task_queue.empty()) {
-            std::cout << "found tasks" << std::endl;
+            // std::cout << "HasData => found tasks" << std::endl;
             return true;
         }
         lock_2.unlock();
 
-        std::cout << "no tasks" << std::endl;
+        // std::cout << "HasData => no tasks" << std::endl;
 
-        std::cout << "finished_threads: " << finished_threads << std::endl;
+        // std::cout << "HasData => finished_threads: " << finished_threads << std::endl;
 
         if (finished_threads != num_threads) {
             return true;
         }
 
-        std::cout << "all threads finished" << std::endl;
+        // std::cout << "HasData => all threads finished" << std::endl;
 
 
         if (accept_tasks) {
             return true;
         }
 
-        std::cout << "NO DATA" << std::endl;
+        std::cout << "HasData => NO DATA" << std::endl;
 
         return false;
     }
@@ -220,14 +236,15 @@ public:
     // Getters and Setters
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Add a batch that can be used to add the results to
-    void add_batch(TMVA::Experimental::RTensor<float>* batch) {
-        std::cout << "ADDING BATCH" << std:: endl;
+    void AddBatch(TMVA::Experimental::RTensor<float>* batch) {
+        // std::cout << "AddBatch => start" << std:: endl;
         std::unique_lock<std::mutex> lock(empty_batch_lock);
-
         empty_batch_queue.push(batch);
-
         lock.unlock();
+
+        // std::cout << "AddBatch => added batch" << std:: endl;
         empty_batch_condition.notify_one();
+        // std::cout << "AddBatch => notified" << std:: endl;
     }
     
     

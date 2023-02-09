@@ -54,16 +54,16 @@ int main() {
     auto start = std::chrono::steady_clock::now();
     size_t i = 0;
     while (batch_loader.HasData()) {
-        std::cout << "MAIN: batch: " << i++ << std::endl;
+        std::cout << "MainLoop => batch: " << ++i << std::endl;
         TMVA::Experimental::RTensor<float>* batch = batch_loader.GetBatch();
-        std::cout << "MAIN: BatchSize: " << (*batch).GetSize() << std::endl;
+        // std::cout << "MainLoop => Batch: " << batch->GetSize() << std::endl;
         
         auto end = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
 
         myFile << elapsed_seconds.count() << std::endl;
 
-        batch_loader.add_batch(batch);
+        batch_loader.AddBatch(batch);
     }
 
     myFile.close();
