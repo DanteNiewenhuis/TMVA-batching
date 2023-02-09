@@ -43,6 +43,4 @@ model.compile(optimizer='adam',
               loss=loss_fn,
               metrics=['accuracy'])
 
-
-
 model.fit(generator)
