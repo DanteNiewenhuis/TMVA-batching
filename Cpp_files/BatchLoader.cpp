@@ -17,7 +17,7 @@ private:
     const bool drop_last;
 
     std::vector<size_t> row_order;
-
+    
     // Randomize the order of the indices
     void RandomizeOrder() {
         std::random_shuffle(row_order.begin(), row_order.end());
@@ -27,8 +27,6 @@ private:
     void FillBatch(std::vector<size_t> idx) {
         size_t offset;
         for (int i = 0; i < batch_size; i++) {
-            offset = idx[i]*num_columns;
-
             std::copy(x_tensor->GetData() + (idx[i]*num_columns), 
                       x_tensor->GetData() + ((idx[i]+1)*num_columns), 
                       x_batch->GetData() + i*num_columns);
@@ -52,6 +50,9 @@ public:
     // return a batch of data
     TMVA::Experimental::RTensor<float>* operator()()
     {
+        // current_row += batch_size;
+        // return x_batch;
+
         if (HasData())
         {
             // Take the batch_size indices from the row_order

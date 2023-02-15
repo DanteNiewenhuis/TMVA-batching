@@ -50,11 +50,10 @@ loss_fn = torch.nn.MSELoss(reduction='mean')
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
 i = 0
-for batch in generator:
-
+for x, y in generator:
 
     # Split x and y
-    x_train, y_train = torch.Tensor(batch[0]), torch.Tensor(batch[1])
+    x_train, y_train = torch.Tensor(x), torch.Tensor(y)
     
     # Make prediction and calculate loss
     pred = model(x_train).view(-1)
