@@ -7,7 +7,7 @@
 
 // Include my classes
 #include "../ChunkLoader.cpp"
-#include "../BatchLoader_threaded.cpp"
+#include "../BatchLoader.cpp"
 
 // Timing
 #include <chrono>
@@ -26,31 +26,29 @@ int main() {
     size_t chunk_size = 200000, batch_size = 1000, num_columns = cols.size();
 
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
+    TMVA::Experimental::RTensor<float> x_tensor_2({chunk_size, num_columns});
     ROOT::RDataFrame x_rdf(tree_name, file_name, cols);
 
 
-    size_t num_threads = 10, num_batches = 300;
-    BatchLoader batch_loader(batch_size, num_columns, num_threads, num_batches);
+    size_t num_threads = 2, num_batches = 300;
+    BatchLoader batch_loader(batch_size, num_columns, num_threads, num_batches, 0.7);
 
     std::cout << num_columns << std::endl;
 
     ChunkLoader <float&, float&, float&, float&, float&, float&, float&, float&, float&, 
                  float&, float&, float&, float&, float&, float&, float&, float&, float&, 
                  float&, float&> func(x_tensor);
-
+    ChunkLoader <float&, float&, float&, float&, float&, float&, float&, float&, float&, 
+                float&, float&, float&, float&, float&, float&, float&, float&, float&, 
+                float&, float&> func_2(x_tensor);
+    
     x_rdf.Range(chunk_size).Foreach(func, cols);
+    x_rdf.Range(chunk_size, 2*chunk_size).Foreach(func_2, cols);
 
-    std::cout << x_tensor.GetSize() << std::endl;
-
-    auto start = std::chrono::steady_clock::now();
-    batch_loader.SetTensor(&x_tensor, chunk_size);
+    batch_loader.AddTasks(&x_tensor, chunk_size);
+    batch_loader.AddTasks(&x_tensor_2, chunk_size);
     batch_loader.Done();
-
-
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "Batching took: " << elapsed_seconds.count() << std::endl;
-
+    batch_loader.wait_for_tasks();
 
     std::ofstream myFile;
     size_t delay = 0;
@@ -60,13 +58,13 @@ int main() {
 
     myFile << "0" << std::endl;
 
-    start = std::chrono::steady_clock::now();
-    batch_loader.wait_for_tasks();
+    auto start= std::chrono::steady_clock::now();
+    auto end = std::chrono::steady_clock::now();
+
     size_t i = 0;
-    while (batch_loader.HasData()) {
-        std::cout << "MainLoop => batch: " << ++i << std::endl;
-        TMVA::Experimental::RTensor<float>* batch = batch_loader.GetBatch();
-        // std::cout << "MainLoop => Batch: " << batch->GetSize() << std::endl;
+    while (batch_loader.HasTrainData()) {
+        TMVA::Experimental::RTensor<float>* batch = batch_loader.GetTrainBatch();
+        std::cout << "MainLoop => train batch: " << ++i << " " << batch->GetSize() << std::endl;
         
         end = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
@@ -75,8 +73,25 @@ int main() {
 
         usleep(delay);
 
-        // batch_loader.AddBatch(batch);
+        delete batch;
     }
+
+    i = 0;
+    while (batch_loader.HasValidationData()) {
+        TMVA::Experimental::RTensor<float>* batch = batch_loader.GetValidationBatch();
+        std::cout << "MainLoop => test batch: " << ++i << " " << batch->GetSize() << std::endl;
+        
+        end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        myFile << elapsed_seconds.count() << std::endl;
+
+        usleep(delay);
+
+        delete batch;
+    }
+
+    std::cout << "ENDDD" << std::endl;
 
     myFile.close();
 }

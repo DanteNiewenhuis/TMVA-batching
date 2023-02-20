@@ -1,5 +1,5 @@
 import ROOT
-from batch_generator import BatchGenerator
+from batch_generator import GetGenerators
 import tensorflow as tf
 
 main_folder = "../"
@@ -22,9 +22,9 @@ filters = ["fjet_D2 < 5"] # Random filters as example
 
 num_columns = len(columns)
 batch_rows = 1024
-chunk_rows = 200_000
+chunk_rows = 100_000
 
-generator = BatchGenerator(file_name, tree_name, chunk_rows, batch_rows, target="Type")
+train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", train_ratio=0.7)
 
 ###################################################################################################
 ## AI example
@@ -43,4 +43,4 @@ model.compile(optimizer='adam',
               loss=loss_fn,
               metrics=['accuracy'])
 
-model.fit(generator)
+model.fit(train_generator, validation_data=test_generator, epochs=1)

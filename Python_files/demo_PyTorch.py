@@ -1,5 +1,5 @@
 import ROOT
-from batch_generator import BatchGenerator
+from batch_generator import GetGenerators
 import torch
 
 main_folder = "../"
@@ -21,9 +21,9 @@ filters = []
 
 num_columns = len(columns)
 batch_rows = 1024
-chunk_rows = 100_000
+chunk_rows = 1_000_000
 
-generator = BatchGenerator(file_name, tree_name, chunk_rows, batch_rows, target="Type")
+train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", train_ratio=0.7)
 
 ###################################################################################################
 ## AI example
@@ -50,7 +50,7 @@ loss_fn = torch.nn.MSELoss(reduction='mean')
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
 i = 0
-for x, y in generator:
+for x, y in train_generator:
 
     # Split x and y
     x_train, y_train = torch.Tensor(x), torch.Tensor(y)
@@ -66,6 +66,24 @@ for x, y in generator:
 
     accuracy = calc_accuracy(y_train, pred)
 
-    print(f"batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
+    print(f"train batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
 
     i += 1
+
+print("Evaluation!")
+with torch.no_grad():
+    for x, y in test_generator:
+
+        # Split x and y
+        x_test, y_test = torch.Tensor(x), torch.Tensor(y)
+        
+        # Make prediction and calculate loss
+        pred = model(x_test).view(-1)
+
+        accuracy = calc_accuracy(y_test, pred)
+
+        print(f"test batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
+
+        i += 1
+
+print("Finished")

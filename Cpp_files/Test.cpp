@@ -14,7 +14,7 @@
 
 #include "BatchGenerator.cpp"
 
-void generator_test(size_t chunk_size, std::string name)
+void generator_test(std::string name)
 {
     // std::vector<std::string> cols = {
     //     "fjet_C2",       "fjet_D2",       "fjet_ECF1",      "fjet_ECF2",
@@ -23,7 +23,9 @@ void generator_test(size_t chunk_size, std::string name)
     //     "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta",
     //     "fjet_m",        "fjet_phi",      "fjet_pt",        "weights"};
 
-    size_t batch_size = 1024, max_chunks = 20000;
+    size_t batch_size = 1024, chunk_size = 200000;
+
+    double train_ratio = 1;
 
     std::string file_name;
     if (name == "h5")
@@ -41,46 +43,60 @@ void generator_test(size_t chunk_size, std::string name)
     std::vector<std::string> cols = x_rdf.GetColumnNames();
     size_t num_columns = cols.size();
 
-    size_t delay = 1000;
-    std::string s =
-        "../results/Parralel/normal_" + std::to_string(delay) + ".csv";
-
-    std::ofstream myFile;
-    myFile.open(s, std::ofstream::trunc);
-    myFile << "0" << std::endl;
-
-    auto start = std::chrono::steady_clock::now();
-
     BatchGenerator generator =
         BatchGenerator<float&, float&, float&, float&, float&, float&, float&,
                        float&, float&, float&, float&, float&, float&, float&,
-                       float&, float&, float&, float&, float&, float&>(
-            file_name, tree_name, cols, {}, chunk_size, batch_size, max_chunks);
+                       float&, float&, float&, float&, float&, float&, float&, 
+                       float&, float&, float&, float&, float&, float&, float&>(
+            file_name, tree_name, cols, {}, chunk_size, batch_size, train_ratio);
+
+    generator.init();
+
+    std::cout << "MAIN => Chunks loaded" << std::endl;
+    
+    // usleep(1000000);
+
+    std::cout << "slept" << std::endl;
+
+    std::ofstream myFile;
+    size_t delay = 0;
+    // std::string s = "batching" + std::to_string(delay) + ".txt";    
+    std::string s = "batching_test.txt";
+    myFile.open(s);
+
+    myFile << "0" << std::endl;
+
+    auto start= std::chrono::steady_clock::now();
+    auto end = std::chrono::steady_clock::now();
 
     size_t i = 0;
-    while (generator.hasData())
-    {
-        auto batch = generator.get_batch();
+    while(generator.HasTrainData()) {
+        auto batch = generator.GetTrainBatch();
 
-        usleep(delay);
+        std::cout << "train batch " << ++i << " " << batch->GetSize() << std::endl;
 
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
+        end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
 
         myFile << elapsed_seconds.count() << std::endl;
-        i++;
-        if (i >= 10000)
-        {
-            break;
-        }
+
+        delete batch;
+        usleep(10000);
     }
 
     myFile.close();
+
+    i = 0;
+    while(generator.HasValidationData()) {
+        auto batch = generator.GetValidationBatch();
+
+        std::cout << "test batch " << ++i << " " << batch->GetSize() << std::endl;
+    }
 }
 
 int main()
 {
-    generator_test(200000, "Higgs");
+    generator_test("Higgs");
 
     return 0;
 }

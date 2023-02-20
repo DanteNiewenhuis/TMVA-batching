@@ -1,5 +1,5 @@
 import ROOT
-from batch_generator import BatchGenerator
+from batch_generator import GetGenerators
 import time
 import numpy as np
 import argparse
@@ -16,17 +16,22 @@ columns = x_rdf.GetColumnNames()
 
 filters = []
 
-chunk_rows = 10
-batch_rows = 10
+chunk_rows = 2_000
+batch_rows = 128
 
-generator = BatchGenerator(file_name, tree_name, chunk_rows,
-                           batch_rows, target="Type", weights="missing_energy_phi")
+train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows,
+                           batch_rows, target="Type", weights="missing_energy_phi", train_ratio=0.7)
 
-timings = [0]
 
-start = time.time()
-last_time = time.time()
-for i, batch in enumerate(generator):
-    print(f"batch {i} => {batch[0].shape}, {batch[1]}, {batch[2]}")
+# timings = [0]
+
+# start = time.time()
+# last_time = time.time()
+for i, batch in enumerate(train_generator):
+    print(f"train batch {i} => {batch[0].shape, batch[1].shape, batch[2].shape}")
 
     break
+
+
+# for i, batch in enumerate(test_generator):
+#     print(f"test batch {i} => {batch[0].shape}")

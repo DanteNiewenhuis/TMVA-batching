@@ -4,7 +4,7 @@ import numpy as np
 main_folder = "../"
 
 
-class BatchGenerator:
+class BaseGenerator:
 
     def get_template(self, file_name: str, tree_name: str, columns: list[str] = None) -> tuple[list[str], str]:
         """Generate a template for the BatchGenerator based on the given RDataFrame and columns
@@ -38,7 +38,8 @@ class BatchGenerator:
         return columns, template_string[:-1]
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, filters: list[str] = [], target: str = None, weights: str = None):
+                 columns: list[str] = None, filters: list[str] = [], target: str = None, 
+                 weights: str = None, train_ratio: float = 1.0):
         """_summary_
 
         Args:
@@ -85,7 +86,9 @@ class BatchGenerator:
 
         # Create C++ batch generator
         self.generator = ROOT.BatchGenerator(template)(
-            file_name, tree_name, columns, filters, chunk_rows, batch_rows)
+            file_name, tree_name, columns, filters, chunk_rows, batch_rows, train_ratio)
+
+        self.deactivated = False
 
     def __iter__(self):
         """Initialize the generator to be used for a loop
@@ -94,8 +97,44 @@ class BatchGenerator:
 
         return self
 
+    def GetSample(self):
+        if not self.target_given:
+            return np.zeros((self.batch_rows, self.num_columns))
+
+        if not self.weights_given:
+            return np.zeros((self.batch_rows, self.num_columns-1)), np.zeros((self.batch_rows))
+
+        return np.zeros((self.batch_rows, self.num_columns-2)), np.zeros((self.batch_rows)), np.zeros((self.batch_rows))
+
+    def BatchToNumpy(self, batch):
+        data = batch.GetData()
+        data.reshape((self.batch_size,))
+        return_data = np.array(data).reshape(
+            self.batch_rows, self.num_columns)
+
+        # Splice target column from the data if weight is given
+        if self.target_given:
+            target_data = return_data[:, self.target_index]
+            return_data = np.column_stack(
+                (return_data[:, :self.target_index], return_data[:, self.target_index+1:]))
+
+            # Splice weights column from the data if weight is given
+            if self.weights_given:
+                if self.target_index < self.weights_index:
+                    self.weights_index -= 1
+
+                weights_data = return_data[:, self.weights_index]
+                return_data = np.column_stack(
+                    (return_data[:, :self.weights_index], return_data[:, self.weights_index+1:]))
+                return return_data, target_data, weights_data
+
+            return return_data, target_data
+
+        else:
+            return_data
+
     # Return a batch when available
-    def __next__(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    def GetTrainBatch(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
         """Return the next batch of data from the given RDataFrame
 
         Raises:
@@ -107,33 +146,92 @@ class BatchGenerator:
                                  Only given if a target column was specified
         """
 
-        batch = self.generator.GetBatch()
+        batch = self.generator.GetTrainBatch()
 
         if (batch.GetSize() > 0):
-            data = batch.GetData()
-            data.reshape((self.batch_size,))
-            return_data = np.array(data).reshape(
-                self.batch_rows, self.num_columns)
+            return self.BatchToNumpy(batch)
 
-            # Splice target column from the data if weight is given
-            if self.target_given:
-                target_data = return_data[:, self.target_index]
-                return_data = np.column_stack(
-                    (return_data[:, :self.target_index], return_data[:, self.target_index+1:]))
+        return []
 
-                # Splice weights column from the data if weight is given
-                if self.weights_given:
-                    if self.target_index < self.weights_index:
-                        self.weights_index -= 1
+    def GetValidationBatch(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+        """Return the next batch of data from the given RDataFrame
 
-                    weights_data = return_data[:, self.weights_index]
-                    return_data = np.column_stack(
-                        (return_data[:, :self.weights_index], return_data[:, self.weights_index+1:]))
-                    return return_data, target_data, weights_data
+        Raises:
+            StopIteration: Stop Iterating over data when all data has been processed
 
-                return return_data, target_data
+        Returns:
+            X (np.ndarray): Batch of data of size.
+            target (np.ndarray): Batch of Target data. 
+                                 Only given if a target column was specified
+        """
 
-            else:
-                return_data
+        batch = self.generator.GetValidationBatch()
 
-        raise StopIteration
+        if (batch.GetSize() > 0):
+            return self.BatchToNumpy(batch)
+
+        return []
+
+class TrainBatchGenerator:
+
+    def __init__(self, base_generator: BaseGenerator):
+        print("init train")
+        self.base_generator = base_generator
+        self.initialized = False
+        self.deactivated = True
+
+    
+    def __iter__(self):
+        print("iter train")
+
+        self.initialized = True
+        self.deactivated = False
+
+        self.base_generator.__iter__()
+
+        return self
+
+    def __next__(self):
+        print(f"Train => __next__ {self.deactivated = }")
+        if not self.initialized:
+            return self.base_generator.GetSample()
+
+        if self.deactivated:
+            self.__iter__()
+
+        batch = self.base_generator.GetTrainBatch()
+
+        if len(batch) == 0:
+            self.deactivated = True
+            raise StopIteration
+
+        return batch
+
+class ValidationBatchGenerator:
+
+    def __init__(self, base_generator: BaseGenerator):
+        self.base_generator = base_generator
+
+    
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        batch = self.base_generator.GetValidationBatch()
+
+        if len(batch) == 0:
+            raise StopIteration
+
+        return batch
+
+
+def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
+                 columns: list[str] = None, filters: list[str] = [], target: str = None, 
+                 weights: str = None, train_ratio: float = 1.0):
+    base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
+                 columns, filters, target, weights, train_ratio)
+
+    train_generator = TrainBatchGenerator(base_generator)
+    validation_generator = ValidationBatchGenerator(base_generator)
+
+    return train_generator, validation_generator
