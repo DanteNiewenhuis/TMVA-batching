@@ -29,17 +29,17 @@ class BaseGenerator:
         template_dict = {"Int_t": "int&", "Float_t": "float&"}
 
         template_string = ""
-        columns = list(x_rdf.GetColumnNames())
+        self.columns = list(x_rdf.GetColumnNames())
 
         # Get the types of the different columns
-        for name in columns:
+        for name in self.columns:
             template_string += template_dict[x_rdf.GetColumnType(name)] + ","
 
-        return columns, template_string[:-1]
+        return template_string[:-1]
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, train_ratio: float = 1.0):
+                 weights: str = None, train_ratio: float = 1.0, use_whole_file: bool = True, max_chunks: int = 1):
         """_summary_
 
         Args:
@@ -57,17 +57,17 @@ class BaseGenerator:
         ROOT.gInterpreter.ProcessLine(
             f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
-        columns, template = self.get_template(file_name, tree_name, columns)
+        template = self.get_template(file_name, tree_name, columns)
 
         self.batch_rows = batch_rows
-        self.num_columns = len(columns)
+        self.num_columns = len(self.columns)
         self.batch_size = batch_rows * self.num_columns
 
         # Handle target
         self.target_given = target is not None
         if self.target_given:
-            if target in columns:
-                self.target_index = columns.index(target)
+            if target in self.columns:
+                self.target_index = self.columns.index(target)
             else:
                 raise ValueError(
                     f"Provided target not in given columns: \ntarget => {target}\ncolumns => {columns}")
@@ -78,15 +78,15 @@ class BaseGenerator:
             raise ValueError(
                 "Weights can only be used when a target is provided")
         if self.weights_given:
-            if weights in columns:
-                self.weights_index = columns.index(weights)
+            if weights in self.columns:
+                self.weights_index = self.columns.index(weights)
             else:
                 raise ValueError(
                     f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {columns}")
 
         # Create C++ batch generator
         self.generator = ROOT.BatchGenerator(template)(
-            file_name, tree_name, columns, filters, chunk_rows, batch_rows, train_ratio)
+            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, train_ratio, use_whole_file, max_chunks)
 
         self.deactivated = False
 
@@ -175,24 +175,24 @@ class BaseGenerator:
 class TrainBatchGenerator:
 
     def __init__(self, base_generator: BaseGenerator):
-        print("init train")
         self.base_generator = base_generator
         self.initialized = False
         self.deactivated = True
 
     
     def __iter__(self):
-        print("iter train")
-
         self.initialized = True
         self.deactivated = False
 
         self.base_generator.__iter__()
 
         return self
+    
+    @property
+    def columns(self) -> list[str]:
+        return self.base_generator.columns
 
     def __next__(self):
-        print(f"Train => __next__ {self.deactivated = }")
         if not self.initialized:
             return self.base_generator.GetSample()
 
@@ -212,6 +212,9 @@ class ValidationBatchGenerator:
     def __init__(self, base_generator: BaseGenerator):
         self.base_generator = base_generator
 
+    @property
+    def columns(self) -> list[str]:
+        return self.base_generator.columns
     
     def __iter__(self):
         return self
@@ -227,9 +230,9 @@ class ValidationBatchGenerator:
 
 def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, train_ratio: float = 1.0):
+                 weights: str = None, train_ratio: float = 1.0, use_whole_file:bool= True, max_chunks: int = 1):
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
-                 columns, filters, target, weights, train_ratio)
+                 columns, filters, target, weights, train_ratio, use_whole_file, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator)
     validation_generator = ValidationBatchGenerator(base_generator)

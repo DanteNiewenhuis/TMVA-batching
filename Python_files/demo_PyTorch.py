@@ -2,6 +2,8 @@ import ROOT
 from batch_generator import GetGenerators
 import torch
 
+import time
+
 main_folder = "../"
 
 
@@ -20,10 +22,11 @@ columns = x_rdf.GetColumnNames()
 filters = []
 
 num_columns = len(columns)
-batch_rows = 1024
-chunk_rows = 1_000_000
+batch_rows = 10_000
+chunk_rows = 100_000
 
-train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", train_ratio=0.7)
+train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", 
+                                                train_ratio=0.5, use_whole_file=False, max_chunks=10)
 
 ###################################################################################################
 ## AI example
@@ -49,9 +52,13 @@ model = torch.nn.Sequential(
 loss_fn = torch.nn.MSELoss(reduction='mean')
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
+start = time.time()
+
 i = 0
 for x, y in train_generator:
-
+    end = time.time()
+    print(f"training batch took {end - start :.6f}")
+    
     # Split x and y
     x_train, y_train = torch.Tensor(x), torch.Tensor(y)
     
@@ -66,24 +73,32 @@ for x, y in train_generator:
 
     accuracy = calc_accuracy(y_train, pred)
 
-    print(f"train batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
+    # print(f"train batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
 
     i += 1
 
+    start = time.time()
+
 print("Evaluation!")
-with torch.no_grad():
-    for x, y in test_generator:
 
-        # Split x and y
-        x_test, y_test = torch.Tensor(x), torch.Tensor(y)
-        
-        # Make prediction and calculate loss
-        pred = model(x_test).view(-1)
+start = time.time()
+# with torch.no_grad():
+for x, y in test_generator:
+    end = time.time()
+    print(f"testing batch took {end - start :.6f}")
+    
+    # Split x and y
+    x_test, y_test = torch.Tensor(x), torch.Tensor(y)
+    
+    # Make prediction and calculate loss
+    pred = model(x_test).view(-1)
 
-        accuracy = calc_accuracy(y_test, pred)
+    accuracy = calc_accuracy(y_test, pred)
 
-        print(f"test batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
+    # print(f"test batch {i}: {loss.item():.4f} --- {accuracy:.4f}")
 
-        i += 1
+    i += 1
+
+    start = time.time()
 
 print("Finished")

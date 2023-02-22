@@ -16,7 +16,7 @@ class BatchGenerator
 {
 private:
     std::vector<std::string> cols, filters;
-    size_t num_columns, chunk_size, batch_size, current_row=0, entries;
+    size_t num_columns, chunk_size, max_chunks, batch_size, current_row=0, entries;
 
     std::string file_name, tree_name;
     
@@ -25,8 +25,10 @@ private:
     std::thread loading_thread;
     bool loading_thread_started = false, initialized = false;
 
-    bool EoF = false;
+    bool EoF = false, use_whole_file;
     double train_ratio;
+
+    TMVA::Experimental::RTensor<float>* previous_batch = 0;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Functions
@@ -45,7 +47,7 @@ private:
         ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec(tree_name, 
                                                 file_name, {start_l, std::numeric_limits<Long64_t>::max()});
         ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
-
+        
         size_t progressed_events, passed_events;
 
 
@@ -90,15 +92,17 @@ private:
 
         batch_loader->wait_for_tasks();
 
+        std::cout << "BatchGenerator::LoadChunk => Batching Done" << std::endl;
         delete x_tensor;
     }
 
 public:
 
     BatchGenerator(std::string file_name, std::string tree_name, std::vector<std::string> cols, 
-                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, double train_ratio=1.0):
+                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, double train_ratio=1.0, 
+                   size_t use_whole_file=true, size_t max_chunks = 1):
         file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(cols.size()), 
-        chunk_size(chunk_size), batch_size(batch_size), train_ratio(train_ratio) {
+        chunk_size(chunk_size), batch_size(batch_size), train_ratio(train_ratio), use_whole_file(use_whole_file), max_chunks(max_chunks) {
         
         // get the number of entries in the dataframe
         TFile* f = TFile::Open(file_name.c_str());
@@ -107,7 +111,7 @@ public:
 
         std::cout << "BatchGenerator => found " << entries << " entries in file." << std::endl;
 
-        size_t num_threads = 2;
+        size_t num_threads = 1;
         std::cout << "BatchGenerator => train_ratio: " << train_ratio << std::endl;
         batch_loader = new BatchLoader(batch_size, num_columns, num_threads, train_ratio);
     }
@@ -136,9 +140,17 @@ public:
     // Returns empty RTensor otherwise.
     TMVA::Experimental::RTensor<float>* GetTrainBatch()
     {   
+
+        if (previous_batch != 0) {
+            delete previous_batch;
+            previous_batch = 0;
+        }
+
         // Get next batch if available
         if (batch_loader->HasTrainData()) {
-            return batch_loader->GetTrainBatch();
+            TMVA::Experimental::RTensor<float>* batch = batch_loader->GetTrainBatch();
+            previous_batch = batch;
+            return batch;
         }
 
         // return empty batch if all events have been used
@@ -149,10 +161,16 @@ public:
     // Returns empty RTensor otherwise.
     TMVA::Experimental::RTensor<float>* GetValidationBatch()
     {   
+        if (previous_batch != 0) {
+            delete previous_batch;
+            previous_batch = 0;
+        }
 
         // Get next batch if available
         if (batch_loader->HasValidationData()) {
-            return batch_loader->GetValidationBatch();
+            TMVA::Experimental::RTensor<float>* batch = batch_loader->GetValidationBatch();
+            previous_batch = batch;
+            return batch;
         }
         
         // return empty batch if all events have been used
@@ -178,15 +196,14 @@ public:
     void LoadChunks() {
         EoF = false;
 
-        size_t num_chunks = 2;
-
-        // Start loading n chunks
-        for (size_t i = 0; i < num_chunks; i++) {
+        
+        for (size_t i = 0; ((i < max_chunks) || (use_whole_file && current_row < entries)); i++) {
             LoadChunk();
             if (current_row >= entries) {
                 break;
             }
-        }
+        }        
+
 
         batch_loader->DeActivate();
         EoF = true;
