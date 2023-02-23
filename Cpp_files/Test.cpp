@@ -12,20 +12,16 @@
 
 #include <fstream>
 
-#include "BatchGenerator.cpp"
+#include "ChunkLoader.cpp"
 
-void generator_test(std::string name)
-{
-    // std::vector<std::string> cols = {
-    //     "fjet_C2",       "fjet_D2",       "fjet_ECF1",      "fjet_ECF2",
-    //     "fjet_ECF3",     "fjet_L2",       "fjet_L3",        "fjet_Qw",
-    //     "fjet_Split12",  "fjet_Split23",  "fjet_Tau1_wta",  "fjet_Tau2_wta",
-    //     "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta",
-    //     "fjet_m",        "fjet_phi",      "fjet_pt",        "weights"};
+#include <thread>
 
-    size_t batch_size = 1024, chunk_size = 200000;
+void LoadChunk(){
+    std::string name = "Higgs";
 
-    double train_ratio = 1;
+    size_t batch_size = 1024, chunk_size = 10000;
+
+    double validation_split = 1;
 
     std::string file_name;
     if (name == "h5")
@@ -42,56 +38,33 @@ void generator_test(std::string name)
     ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
     std::vector<std::string> cols = x_rdf.GetColumnNames();
     size_t num_columns = cols.size();
+    
 
-    BatchGenerator generator =
-        BatchGenerator<float&, float&, float&, float&, float&, float&, float&,
+    TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
+    ChunkLoader<float&, float&, float&, float&, float&, float&, float&,
                        float&, float&, float&, float&, float&, float&, float&,
                        float&, float&, float&, float&, float&, float&, float&, 
-                       float&, float&, float&, float&, float&, float&, float&>(
-            file_name, tree_name, cols, {}, chunk_size, batch_size, train_ratio);
+                       float&, float&, float&, float&, float&, float&, float&> func(x_tensor);
+    auto x_ranged = x_rdf.Range(chunk_size);
 
-    generator.init();
+    std::cout << "looping" << std::endl;
+    x_ranged.Foreach(func, cols);
+    std::cout << "done" << std::endl;
 
-    std::cout << "MAIN => Chunks loaded" << std::endl;
-    
-    // usleep(1000000);
+    std::cout << x_tensor.GetSize() << std::endl;
+}
 
-    std::cout << "slept" << std::endl;
+void generator_test(std::string name)
+{
+    // std::vector<std::string> cols = {
+    //     "fjet_C2",       "fjet_D2",       "fjet_ECF1",      "fjet_ECF2",
+    //     "fjet_ECF3",     "fjet_L2",       "fjet_L3",        "fjet_Qw",
+    //     "fjet_Split12",  "fjet_Split23",  "fjet_Tau1_wta",  "fjet_Tau2_wta",
+    //     "fjet_Tau3_wta", "fjet_Tau4_wta", "fjet_ThrustMaj", "fjet_eta",
+    //     "fjet_m",        "fjet_phi",      "fjet_pt",        "weights"};
 
-    std::ofstream myFile;
-    size_t delay = 0;
-    // std::string s = "batching" + std::to_string(delay) + ".txt";    
-    std::string s = "batching_test.txt";
-    myFile.open(s);
-
-    myFile << "0" << std::endl;
-
-    auto start= std::chrono::steady_clock::now();
-    auto end = std::chrono::steady_clock::now();
-
-    size_t i = 0;
-    while(generator.HasTrainData()) {
-        auto batch = generator.GetTrainBatch();
-
-        std::cout << "train batch " << ++i << " " << batch->GetSize() << std::endl;
-
-        end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-
-        myFile << elapsed_seconds.count() << std::endl;
-
-        delete batch;
-        usleep(10000);
-    }
-
-    myFile.close();
-
-    i = 0;
-    while(generator.HasValidationData()) {
-        auto batch = generator.GetValidationBatch();
-
-        std::cout << "test batch " << ++i << " " << batch->GetSize() << std::endl;
-    }
+    std::thread loading_thread = std::thread(LoadChunk);
+    loading_thread.join();
 }
 
 int main()

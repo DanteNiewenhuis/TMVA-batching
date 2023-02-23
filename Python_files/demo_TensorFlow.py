@@ -24,7 +24,7 @@ batch_rows = 1024
 chunk_rows = 200_000
 
 train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", 
-                                                train_ratio=0.7, use_whole_file= False, max_chunks=1)
+                                                validation_split=0.7, use_whole_file= False, max_chunks=1)
 
 num_columns = len(train_generator.columns)
 
