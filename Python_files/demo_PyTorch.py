@@ -26,7 +26,7 @@ batch_rows = 10_000
 chunk_rows = 100_000
 
 train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", 
-                                                train_ratio=0.5, use_whole_file=False, max_chunks=10)
+                                                validation_split=0.5, use_whole_file=False, max_chunks=10)
 
 ###################################################################################################
 ## AI example

@@ -1,3 +1,4 @@
+import time
 import ROOT
 import numpy as np
 
@@ -39,7 +40,7 @@ class BaseGenerator:
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, train_ratio: float = 1.0, use_whole_file: bool = True, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 1.0, use_whole_file: bool = True, max_chunks: int = 1):
         """_summary_
 
         Args:
@@ -85,17 +86,29 @@ class BaseGenerator:
                     f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {columns}")
 
         # Create C++ batch generator
+
+        print(f"{template = }")
+
         self.generator = ROOT.BatchGenerator(template)(
-            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, train_ratio, use_whole_file, max_chunks)
+            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, validation_split, use_whole_file, max_chunks)
 
         self.deactivated = False
-
-    def __iter__(self):
+    
+    def Activate(self):
         """Initialize the generator to be used for a loop
         """
         self.generator.init()
 
-        return self
+        start = time.time()
+        self.generator.init()
+
+        print(f"batch_generator => init took: {time.time() - start}")
+
+    def DeActivate(self):
+        """Initialize the generator to be used for a loop
+        """
+        self.generator.StopLoading()
+
 
     def GetSample(self):
         if not self.target_given:
@@ -130,8 +143,7 @@ class BaseGenerator:
 
             return return_data, target_data
 
-        else:
-            return_data
+        return return_data
 
     # Return a batch when available
     def GetTrainBatch(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
@@ -176,36 +188,32 @@ class TrainBatchGenerator:
 
     def __init__(self, base_generator: BaseGenerator):
         self.base_generator = base_generator
-        self.initialized = False
-        self.deactivated = True
-
     
-    def __iter__(self):
-        self.initialized = True
-        self.deactivated = False
+    def Activate(self):
+        print(f"TrainBatchGenerator::Activate => start")
 
-        self.base_generator.__iter__()
+        self.base_generator.Activate()
+    
+    def DeActivate(self):
+        print(f"TrainBatchGenerator::Activate => start")
 
-        return self
+        self.base_generator.DeActivate()
     
     @property
     def columns(self) -> list[str]:
         return self.base_generator.columns
 
-    def __next__(self):
-        if not self.initialized:
-            return self.base_generator.GetSample()
+    def __call__(self):
+        print(f"TrainBatchGenerator::call => start")
 
-        if self.deactivated:
-            self.__iter__()
+        self.Activate()
 
-        batch = self.base_generator.GetTrainBatch()
-
-        if len(batch) == 0:
-            self.deactivated = True
-            raise StopIteration
-
-        return batch
+        while(True):
+            batch = self.base_generator.GetTrainBatch()
+            if len(batch) == 0:
+                break
+            
+            yield batch
 
 class ValidationBatchGenerator:
 
@@ -215,26 +223,48 @@ class ValidationBatchGenerator:
     @property
     def columns(self) -> list[str]:
         return self.base_generator.columns
-    
-    def __iter__(self):
-        return self
 
-    def __next__(self):
-        batch = self.base_generator.GetValidationBatch()
+    def __call__(self):
+        while(True):
+            batch = self.base_generator.GetValidationBatch()
 
-        if len(batch) == 0:
-            raise StopIteration
+            if len(batch) == 0:
+                break
 
-        return batch
+            yield batch
 
 
 def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, train_ratio: float = 1.0, use_whole_file:bool= True, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 0, use_whole_file:bool= True, max_chunks: int = 1):
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
-                 columns, filters, target, weights, train_ratio, use_whole_file, max_chunks)
+                 columns, filters, target, weights, validation_split, use_whole_file, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator)
     validation_generator = ValidationBatchGenerator(base_generator)
 
     return train_generator, validation_generator
+
+def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
+                 columns: list[str] = None, filters: list[str] = [], target: str = None, 
+                 weights: str = None, validation_split: float = 0, use_whole_file:bool= True, max_chunks: int = 1):
+
+    import tensorflow as tf
+
+    base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
+                 columns, filters, target, weights, validation_split, use_whole_file, max_chunks)
+
+    train_generator = TrainBatchGenerator(base_generator)
+    validation_generator = ValidationBatchGenerator(base_generator)
+
+    num_columns = len(train_generator.columns)
+
+    ## TODO: Add support for no target en weights
+    ds_train = tf.data.Dataset.from_generator(train_generator, output_signature = (tf.TensorSpec(shape=(batch_rows ,num_columns), dtype=tf.float64), 
+                                                                               tf.TensorSpec(shape=(batch_rows ,), dtype=tf.float64)))
+
+    ds_validation = tf.data.Dataset.from_generator(validation_generator, output_signature = (tf.TensorSpec(shape=(batch_rows ,num_columns), dtype=tf.float64), 
+                                                                             tf.TensorSpec(shape=(batch_rows ,), dtype=tf.float64)))
+
+
+    return ds_train, ds_validation

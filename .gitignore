@@ -37,3 +37,5 @@ data/*
 .vscode
 
 **/__pycache__
+
+cppyy_problem

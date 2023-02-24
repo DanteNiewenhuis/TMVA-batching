@@ -17,6 +17,20 @@ public:
         std::cout << first << std::endl;
         (*this)(std::forward<Rest>(rest)...);
     }
+
+    void operator()(int first) {
+        std::cout << "INT" << std::endl;
+
+        std::cout << first << std::endl;
+        (*this)(std::forward<Rest>(rest)...);
+    }
+
+    void operator()(int first, Rest... rest) {
+        std::cout << "INT" << std::endl;
+
+        std::cout << first << std::endl;
+        (*this)(std::forward<Rest>(rest)...);
+    }
 };
 
 template<typename... Args>
