@@ -13,7 +13,7 @@ class ChunkLoader
 {
 
 private:
-    size_t current_row = 0, offset = 0, vec_size_idx = 0;
+    size_t offset = 0, vec_size_idx = 0;
     float label;
     bool add_label;
     std::vector<size_t> vec_sizes;
@@ -24,7 +24,8 @@ private:
     // Value assigning
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
-    // Load the values of a row onto a row of the Tensor
+    // Load the final given value into x_tensor
+    // Add a label to the end of the row if given
     template <typename First_T> 
     void assign_to_tensor(First_T first)
     {
@@ -34,17 +35,7 @@ private:
             x_tensor.GetData()[offset++] = label;
         }
     }
-
-    // Load the values of a row onto a row of the Tensor
-    template <typename First_T, typename... Rest_T> 
-    void assign_to_tensor(First_T first, Rest_T... rest)
-    {
-        x_tensor.GetData()[offset++] = first;
-
-        assign_to_tensor(std::forward<Rest_T>(rest)...);
-    }
-
-    // Load the values of a row onto a row of the Tensor
+    // Vector version of the previous function
     template <typename VecType> 
     void assign_to_tensor(ROOT::RVec<VecType> first)
     {
@@ -55,7 +46,15 @@ private:
         }
     }
 
-    // Load the values of a row onto a row of the Tensor
+    // Recursively loop through the given values, and load them onto the x_tensor
+    template <typename First_T, typename... Rest_T> 
+    void assign_to_tensor(First_T first, Rest_T... rest)
+    {
+        x_tensor.GetData()[offset++] = first;
+
+        assign_to_tensor(std::forward<Rest_T>(rest)...);
+    }
+    // Vector version of the previous function
     template <typename VecType, typename... Rest_T> 
     void assign_to_tensor(ROOT::RVec<VecType> first, Rest_T... rest)
     {
@@ -82,21 +81,19 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, std::vector<size_t> vec_sizes = std::vector<size_t>(), bool add_label=false, float label=0)
+    ChunkLoader(TMVA::Experimental::RTensor<float>& x_tensor, std::vector<size_t> vec_sizes = std::vector<size_t>(), 
+                bool add_label=false, float label=0)
         : x_tensor(x_tensor), vec_sizes(vec_sizes), add_label(add_label), label(label)
     {}
 
     void operator()(First first, Rest... rest) 
     {
-        assign_to_tensor(std::forward<First>(first), std::forward<Rest>(rest)...);
-        current_row++;
         vec_size_idx = 0;
+        assign_to_tensor(std::forward<First>(first), std::forward<Rest>(rest)...);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Getters and Setters
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    size_t GetCurrentRow() { return current_row;}
-    void SetCurrentRow(size_t i) {current_row = i;}
     void SetLabel(float l) {label = l;}
 };

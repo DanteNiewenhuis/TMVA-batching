@@ -40,7 +40,7 @@ class BaseGenerator:
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 1.0, use_whole_file: bool = True, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 1.0, max_chunks: int = 0):
         """_summary_
 
         Args:
@@ -71,7 +71,7 @@ class BaseGenerator:
                 self.target_index = self.columns.index(target)
             else:
                 raise ValueError(
-                    f"Provided target not in given columns: \ntarget => {target}\ncolumns => {columns}")
+                    f"Provided target not in given columns: \ntarget => {target}\ncolumns => {self.columns}")
 
         # Handle weights
         self.weights_given = weights is not None
@@ -83,14 +83,14 @@ class BaseGenerator:
                 self.weights_index = self.columns.index(weights)
             else:
                 raise ValueError(
-                    f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {columns}")
+                    f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {self.columns}")
 
         # Create C++ batch generator
 
         print(f"{template = }")
 
         self.generator = ROOT.BatchGenerator(template)(
-            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, validation_split, use_whole_file, max_chunks)
+            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, validation_split, max_chunks)
 
         self.deactivated = False
     
@@ -98,11 +98,6 @@ class BaseGenerator:
         """Initialize the generator to be used for a loop
         """
         self.generator.init()
-
-        start = time.time()
-        self.generator.init()
-
-        print(f"batch_generator => init took: {time.time() - start}")
 
     def DeActivate(self):
         """Initialize the generator to be used for a loop
@@ -190,13 +185,9 @@ class TrainBatchGenerator:
         self.base_generator = base_generator
     
     def Activate(self):
-        print(f"TrainBatchGenerator::Activate => start")
-
         self.base_generator.Activate()
     
     def DeActivate(self):
-        print(f"TrainBatchGenerator::Activate => start")
-
         self.base_generator.DeActivate()
     
     @property
@@ -204,8 +195,6 @@ class TrainBatchGenerator:
         return self.base_generator.columns
 
     def __call__(self):
-        print(f"TrainBatchGenerator::call => start")
-
         self.Activate()
 
         while(True):
@@ -236,9 +225,9 @@ class ValidationBatchGenerator:
 
 def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0, use_whole_file:bool= True, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 0, max_chunks: int = 1):
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
-                 columns, filters, target, weights, validation_split, use_whole_file, max_chunks)
+                 columns, filters, target, weights, validation_split, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator)
     validation_generator = ValidationBatchGenerator(base_generator)
@@ -247,24 +236,37 @@ def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
 
 def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0, use_whole_file:bool= True, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 0, max_chunks: int = 1):
 
     import tensorflow as tf
 
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
-                 columns, filters, target, weights, validation_split, use_whole_file, max_chunks)
+                 columns, filters, target, weights, validation_split, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator)
     validation_generator = ValidationBatchGenerator(base_generator)
 
     num_columns = len(train_generator.columns)
 
-    ## TODO: Add support for no target en weights
-    ds_train = tf.data.Dataset.from_generator(train_generator, output_signature = (tf.TensorSpec(shape=(batch_rows ,num_columns), dtype=tf.float64), 
-                                                                               tf.TensorSpec(shape=(batch_rows ,), dtype=tf.float64)))
+    # No target and weights given
+    if (target == None):
+        batch_signature = (tf.TensorSpec(shape=(batch_rows ,num_columns), dtype=tf.float64))
 
-    ds_validation = tf.data.Dataset.from_generator(validation_generator, output_signature = (tf.TensorSpec(shape=(batch_rows ,num_columns), dtype=tf.float64), 
-                                                                             tf.TensorSpec(shape=(batch_rows ,), dtype=tf.float64)))
+    # Target given, no weights given
+    if (target != None and weights == None):
+        batch_signature = ( tf.TensorSpec(shape=(batch_rows, num_columns-1), dtype=tf.float64), 
+                            tf.TensorSpec(shape=(batch_rows,), dtype=tf.float64))
+
+    # Target given, no weights given
+    if (target != None and weights != None):
+        batch_signature = ( tf.TensorSpec(shape=(batch_rows, num_columns-2), dtype=tf.float64), 
+                            tf.TensorSpec(shape=(batch_rows,), dtype=tf.float64),
+                            tf.TensorSpec(shape=(batch_rows,), dtype=tf.float64))
+
+    ## TODO: Add support for no target en weights
+    ds_train = tf.data.Dataset.from_generator(train_generator, output_signature = batch_signature)
+
+    ds_validation = tf.data.Dataset.from_generator(validation_generator, output_signature = batch_signature)
 
 
     return ds_train, ds_validation
