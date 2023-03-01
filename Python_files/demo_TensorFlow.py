@@ -7,6 +7,18 @@ import tensorflow as tf
 
 from BatchTimer import BatchTimer
 
+from keras import backend as K
+import tensorflow as tf
+
+jobs =1
+
+config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=jobs,
+                        inter_op_parallelism_threads=jobs,
+                        allow_soft_placement=True,
+                        device_count = {'CPU': jobs})
+session = tf.compat.v1.Session(config=config)
+K.set_session(session)
+
 main_folder = "../"
 
 
@@ -52,4 +64,4 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 
-model.fit(ds_train, validation_data=ds_valid, epochs=2, callbacks = [BatchTimer("Tensorflow_ROOT")])
+model.fit(ds_train, validation_data=ds_valid, epochs=1, callbacks = [BatchTimer("Tensorflow_ROOT")])

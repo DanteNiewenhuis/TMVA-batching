@@ -17,25 +17,22 @@ file_name = f"{main_folder}data/Higgs_data_full.root"
 # tree_name = "sig_tree"
 # file_name = f"{main_folder}data/vectorData.root"
 
-batch_rows = 2
-chunk_rows = 2
+batch_rows = 1
+chunk_rows = 10
 
 ds_train, ds_validation = GetTFDatasets(file_name, tree_name, chunk_rows,
-                           batch_rows, validation_split=0, max_chunks=1)
+                           batch_rows, validation_split=0.3, target="Type", max_chunks=1)
 
 # gen_train, gen_validation = GetGenerators(file_name, tree_name, chunk_rows,
 #                            batch_rows, target="Type", validation_split=0.3, max_chunks=2)
 
 
 for item in ds_train:
-    print(f"validation: {type(item)}, {item}")
-    for t in item:
-
-        print(f"train: {tf.TensorSpec.from_tensor(t)}")
-
+    print(f"train: {type(item)}, {item}")
+    
 for item in ds_validation:
-    print(f"validation: {item}")
-
+    print(f"validation: {type(item)}, {item}")
+    
 # num_columns = len(train_generator.columns)
 
 # ###################################################################################################

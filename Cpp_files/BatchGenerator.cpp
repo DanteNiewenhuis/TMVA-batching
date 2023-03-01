@@ -36,6 +36,7 @@ private:
     double validation_split;
 
     TMVA::Experimental::RTensor<float>* previous_batch = 0;
+    TMVA::Experimental::RTensor<float>* x_tensor;
 
     std::vector<size_t> vec_sizes;
 
@@ -47,7 +48,7 @@ private:
     // After, the chunk of data is split into batches of data.
     void LoadChunk() 
     {
-        TMVA::Experimental::RTensor<float>* x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
+        
         ChunkLoader<Args...> func((*x_tensor), vec_sizes);
 
         // Create DataFrame
@@ -97,17 +98,15 @@ private:
         // std::cout << "BatchGenerator::init => tensor: " << x_tensor << std::endl;
 
         current_row += progressed_events;
-        batch_loader->AddTasks(x_tensor, passed_events);
-        batch_loader->wait_for_tasks();
 
-        delete x_tensor;
+        batch_loader->CreateBatches(x_tensor, passed_events);
     }
 
 public:
 
     BatchGenerator(std::string file_name, std::string tree_name, std::vector<std::string> cols, 
-                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, std::vector<size_t> vec_sizes = {}, double validation_split=1.0, 
-                   size_t max_chunks = 0, int num_columns = 0):
+                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, std::vector<size_t> vec_sizes = {}, double validation_split=0.0, 
+                   size_t max_chunks = 0, size_t num_columns = 0):
         file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(num_columns), 
         chunk_size(chunk_size), batch_size(batch_size), vec_sizes(vec_sizes), validation_split(validation_split), max_chunks(max_chunks) {
         
@@ -118,6 +117,7 @@ public:
         }
 
         std::cout << "BatchGenerator => num_columns: " << num_columns << std::endl;
+        std::cout << "BatchGenerator => validation_split: " << validation_split << std::endl;
 
         // get the number of entries in the dataframe
         TFile* f = TFile::Open(file_name.c_str());
@@ -126,8 +126,9 @@ public:
 
         std::cout << "BatchGenerator => found " << entries << " entries in file." << std::endl;
 
-        size_t num_threads = 2;
-        batch_loader = new BatchLoader(batch_size, num_columns, num_threads, validation_split);
+        batch_loader = new BatchLoader(batch_size, num_columns, validation_split);
+
+        x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
     }
 
     ~BatchGenerator () {
@@ -147,7 +148,6 @@ public:
         
         current_row = 0;
         batch_loader->Activate();
-
         loading_thread = new std::thread(&BatchGenerator::LoadChunks, this);
     }
 
@@ -221,6 +221,5 @@ public:
 
         batch_loader->DeActivate();
         EoF = true;
-
     }
 };

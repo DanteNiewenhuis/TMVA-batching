@@ -8,47 +8,47 @@ import time
 from batch_generator import GetTFDatasets
 
 
-def h52numpy():
-    file = uproot.open("../data/Higgs_data_full.root")
-    tree = file["test_tree"]
-    branches = tree.arrays()
-    target = ""
+# def h52numpy():
+#     file = uproot.open("../data/Higgs_data_full.root")
+#     tree = file["test_tree"]
+#     branches = tree.arrays()
+#     target = ""
 
-    res = []
+#     res = []
 
-    y = []
-    for k in tree.keys():
-        if k == target:
-            y = branches[k].to_numpy()
-            continue
-        res.append(branches[k].to_numpy())
+#     y = []
+#     for k in tree.keys():
+#         if k == target:
+#             y = branches[k].to_numpy()
+#             continue
+#         res.append(branches[k].to_numpy())
 
-    data = np.array(res)
-    X = data.transpose()
+#     data = np.array(res)
+#     X = data.transpose()
 
-    return X, y
+#     return X, y
 
 file_name = "../data/Higgs_data_full.root"
 tree_name = "test_tree"
 
 batch_size = 1024
 
-X, y = h52numpy()
+# X, y = h52numpy()
 
-ds = tf.data.Dataset.from_tensor_slices(X).batch(batch_size)
+# ds = tf.data.Dataset.from_tensor_slices(X).batch(batch_size)
 
-wf = open("../uproot_batching.csv", "w")
+# wf = open("../uproot_batching.csv", "w")
 
-start = time.time()
-i = 1
-for item in ds:
-    end = time.time()
-    wf.write(f"{end-start}\n")
-    i += 1
+# start = time.time()
+# i = 1
+# for item in ds:
+#     end = time.time()
+#     wf.write(f"{end-start}\n")
+#     i += 1
 
-    start = time.time()
+#     start = time.time()
 
-wf.close()
+# wf.close()
 
 chunk_size = 100_000
 ds_train, ds_valid = GetTFDatasets(file_name, tree_name, chunk_size,

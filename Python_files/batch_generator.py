@@ -42,8 +42,7 @@ class BaseGenerator:
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = None, target: str = None, 
-                 weights: str = "", validation_split: float = 1.0, max_chunks: int = 0,
-                 output_type: str = "NumPy"):
+                 weights: str = "", validation_split: float = 1.0, max_chunks: int = 0):
         """_summary_
 
         Args:
@@ -97,7 +96,7 @@ class BaseGenerator:
 
         # Create C++ batch generator
 
-        print(f"{template = }")
+        print(f"batch_generator {validation_split = }")
 
         self.generator = ROOT.BatchGenerator(template)(
             file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, vec_sizes, validation_split, max_chunks, self.num_columns)
@@ -183,12 +182,14 @@ class BaseGenerator:
 
         batch = self.BatchToNumpy(batch)
 
-        # if type(batch) == tuple:
-        #     return [tf.constant(b, dtype=tf.float32) for b in batch] 
+        # TODO: improve this
+        return batch
+
+        if type(batch) == tuple:
+            return [tf.constant(b, dtype=tf.float32) for b in batch] 
 
         b = tf.constant(batch, dtype="float")
 
-        print(f"{type(b) = }, {b = }")
         return b
     
     # Return a batch when available
@@ -246,9 +247,11 @@ class TrainBatchGenerator:
     @property
     def columns(self) -> list[str]:
         return self.base_generator.columns
+        print(f"batch_generator {validation_split = }")
 
     def __call__(self):
         self.Activate()
+
 
         while(True):
             batch = self.base_generator.GetTrainBatch()
@@ -280,8 +283,11 @@ class ValidationBatchGenerator:
 
 def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, vec_sizes = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0, max_chunks: int = 1):
+                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 1):
     
+    print(f"GetGenerators {validation_split = }")
+
+
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
                  columns, vec_sizes, filters, target, weights, validation_split, max_chunks)
 
@@ -292,7 +298,9 @@ def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
 
 def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0, max_chunks: int = 0):
+                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
+
+    print(f"GetTFDatasets {validation_split = }")
 
     import tensorflow as tf
 
@@ -331,7 +339,9 @@ def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
 
 def GetPyTorchDataLoader(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
                  columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0, max_chunks: int = 0):
+                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
+
+    print(f"GetPyTorchDataLoader {validation_split = }")
 
     base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
                  columns, vec_sizes, filters, target, weights, validation_split, max_chunks)

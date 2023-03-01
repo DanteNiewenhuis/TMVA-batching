@@ -8,15 +8,24 @@ from BatchTimer import BatchTimer
 
 import time
 
+from keras import backend as K
+jobs = 1
+config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=jobs, 
+                        inter_op_parallelism_threads=jobs, 
+                        allow_soft_placement=True, \
+                        device_count = {'CPU': jobs})
+session = tf.compat.v1.Session(config=config)
+K.set_session(session)
+
 # %%
 
 start = time.time()
 
 file = uproot.open("../data/Higgs_data_full.root")
-tree = file["sig_tree"]
+tree = file["test_tree"]
 branches = tree.arrays()
-# target = "Type"
-target = ""
+target = "Type"
+# target = ""
 
 res = []
 
