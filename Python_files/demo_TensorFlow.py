@@ -1,5 +1,8 @@
 import ROOT
-from batch_generator import GetGenerators
+ROOT.EnableThreadSafety()
+
+
+from batch_generator import GetGenerators, GetTFDatasets
 import tensorflow as tf
 
 from BatchTimer import BatchTimer
@@ -9,6 +12,10 @@ main_folder = "../"
 
 tree_name = "test_tree"
 file_name = f"{main_folder}data/Higgs_data_full.root"
+
+
+# tree_name = "sig_tree"
+# file_name = f"{main_folder}data/h5train_combined.root"
 
 
 # columns = ["fjet_C2", "fjet_D2", "fjet_ECF1", "fjet_ECF2", 
@@ -21,19 +28,18 @@ filters = ["fjet_D2 < 5"] # Random filters as example
 # filters = []
 
 batch_rows = 1024
-chunk_rows = 200_000
+chunk_rows = 1_000_000
 
-train_generator, test_generator = GetGenerators(file_name, tree_name, chunk_rows, batch_rows, target="Type", 
-                                                validation_split=0.7, use_whole_file= False, max_chunks=1)
+ds_train, ds_valid = GetTFDatasets(file_name, tree_name, chunk_rows,
+                           batch_rows, validation_split=0.3, target="Type")
 
-num_columns = len(train_generator.columns)
 
 ###################################################################################################
 ## AI example
 ###################################################################################################
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(300, activation=tf.nn.tanh, input_shape=(num_columns-1,)),  # input shape required
+    tf.keras.layers.Dense(300, activation=tf.nn.tanh, input_shape=(28,)),  # input shape required
     tf.keras.layers.Dense(300, activation=tf.nn.tanh),
     tf.keras.layers.Dense(300, activation=tf.nn.tanh),
     tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)
@@ -46,4 +52,4 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 
-model.fit(train_generator, validation_data=test_generator, epochs=1, callbacks = [BatchTimer("Tensorflow_ROOT")])
+model.fit(ds_train, validation_data=ds_valid, epochs=2, callbacks = [BatchTimer("Tensorflow_ROOT")])

@@ -7,8 +7,8 @@ from array import *
 
 
 def create_root_tree(f, start, end):
-    file = ROOT.TFile('tree.root', 'RECREATE')
-    t = ROOT.TTree('tree', 'tree')
+    file = ROOT.TFile(f"../data/h5train/r{start}-{end}.root", 'RECREATE')
+    t = ROOT.TTree('sig_tree', 'sig_tree')
     vars = {}
     for c in list(f.keys()):
         name = str(c)
@@ -64,4 +64,12 @@ def create_root(f, start, end):
 
 # %%
 
-#f = h5py.File("../data/train.h5", "r")
+f = h5py.File("../data/train.h5", "r")
+
+step_size = 1_000_000
+start = 0
+end = 1_000_000
+for i in range(40):
+    create_root_tree(f, start, end)
+    start += step_size
+    end += step_size

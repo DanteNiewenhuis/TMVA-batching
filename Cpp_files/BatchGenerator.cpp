@@ -37,6 +37,8 @@ private:
 
     TMVA::Experimental::RTensor<float>* previous_batch = 0;
 
+    std::vector<size_t> vec_sizes;
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Functions
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +48,7 @@ private:
     void LoadChunk() 
     {
         TMVA::Experimental::RTensor<float>* x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
-        ChunkLoader<Args...> func((*x_tensor));
+        ChunkLoader<Args...> func((*x_tensor), vec_sizes);
 
         // Create DataFrame
         long long start_l = current_row;
@@ -91,6 +93,8 @@ private:
             progressed_events = myCount.GetValue();
             passed_events = myCount.GetValue();
         }
+        
+        // std::cout << "BatchGenerator::init => tensor: " << x_tensor << std::endl;
 
         current_row += progressed_events;
         batch_loader->AddTasks(x_tensor, passed_events);
@@ -102,12 +106,18 @@ private:
 public:
 
     BatchGenerator(std::string file_name, std::string tree_name, std::vector<std::string> cols, 
-                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, double validation_split=1.0, 
-                   size_t max_chunks = 0):
-        file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(cols.size()), 
-        chunk_size(chunk_size), batch_size(batch_size), validation_split(validation_split), max_chunks(max_chunks) {
+                   std::vector<std::string> filters, size_t chunk_size, size_t batch_size, std::vector<size_t> vec_sizes = {}, double validation_split=1.0, 
+                   size_t max_chunks = 0, int num_columns = 0):
+        file_name(file_name), tree_name(tree_name), cols(cols), filters(filters), num_columns(num_columns), 
+        chunk_size(chunk_size), batch_size(batch_size), vec_sizes(vec_sizes), validation_split(validation_split), max_chunks(max_chunks) {
         
         if (max_chunks > 0) {use_whole_file = false;};
+
+        if (num_columns == 0){
+            num_columns = cols.size();
+        }
+
+        std::cout << "BatchGenerator => num_columns: " << num_columns << std::endl;
 
         // get the number of entries in the dataframe
         TFile* f = TFile::Open(file_name.c_str());
@@ -116,7 +126,7 @@ public:
 
         std::cout << "BatchGenerator => found " << entries << " entries in file." << std::endl;
 
-        size_t num_threads = 1;
+        size_t num_threads = 2;
         batch_loader = new BatchLoader(batch_size, num_columns, num_threads, validation_split);
     }
 
