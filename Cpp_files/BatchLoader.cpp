@@ -3,93 +3,181 @@
 #include <vector>
 #include <algorithm>
 
+// Threading imports
+#include <thread> 
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+
 #include "TMVA/RTensor.hxx"
+#include "TMVA/Tools.h"
+
+// Struct for the Tasks given to the threads,
+// A Task states which rows of the given tensor should be used for a batch
+struct Task {
+    TMVA::Experimental::RTensor<float>* x_tensor; 
+    bool is_validation;
+    std::vector<size_t> idx;
+};
 
 class BatchLoader
 {
 private:
-    size_t current_row = 0, num_rows = 0;
-    TMVA::Experimental::RTensor<float>* x_tensor; 
-    TMVA::Experimental::RTensor<float>* x_batch;
-
     const size_t batch_size, num_columns;
+    double validation_split;
 
-    const bool drop_last;
+    // thread elements
+    std::vector<std::thread> threads;
+    size_t num_threads, active_threads = 0;
 
-    std::vector<size_t> row_order;
+    bool accept_tasks = false;
+    TMVA::RandomGenerator<TRandom3> rng;
 
-    // Randomize the order of the indices
-    void RandomizeOrder() {
-        std::random_shuffle(row_order.begin(), row_order.end());
-    }
-
-    // Fil the batch with rows from the chunk based on the given idx
-    void FillBatch(std::vector<size_t> idx) {
-        size_t offset;
-        for (int i = 0; i < batch_size; i++) {
-            offset = idx[i]*num_columns;
-
-            std::copy(x_tensor->GetData() + (idx[i]*num_columns), 
-                      x_tensor->GetData() + ((idx[i]+1)*num_columns), 
-                      x_batch->GetData() + i*num_columns);
-
-        }
-    }
+    // filled batch elements
+    std::queue<TMVA::Experimental::RTensor<float>*> training_batch_queue;
+    std::queue<TMVA::Experimental::RTensor<float>*> validation_batch_queue;
+    std::mutex batch_lock;
+    std::condition_variable batch_condition;
 
 public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constructors
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    BatchLoader(const size_t batch_size, const size_t num_columns, const bool drop_last=true) 
-                : batch_size(batch_size), num_columns(num_columns), drop_last(drop_last) {
-                    x_batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
-                }
+    BatchLoader(const size_t batch_size, const size_t num_columns, double validation_split=0.0) 
+        : batch_size(batch_size), num_columns(num_columns), validation_split(validation_split)
+    {
+        rng = TMVA::RandomGenerator<TRandom3>(0);
+    }
 
+    ~BatchLoader () 
+    {}
+
+
+public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Batch functions
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // return a batch of data
-    TMVA::Experimental::RTensor<float>* operator()()
+    TMVA::Experimental::RTensor<float>* GetTrainBatch()
     {
-        if (HasData())
-        {
-            // Take the batch_size indices from the row_order
-            std::vector<size_t> idx{row_order.begin() + current_row, row_order.begin() + current_row + batch_size};
-            current_row += batch_size;
-
-            // Fill the batchrows with the rows from the chunk
-            FillBatch(idx);
-
-            return x_batch;
+        std::unique_lock<std::mutex> lock(batch_lock);
+        batch_condition.wait(lock, [this]() {     
+            return !training_batch_queue.empty() || !accept_tasks;});
+        
+        if (training_batch_queue.empty()) {
+            return new TMVA::Experimental::RTensor<float>({0,0});
         }
-        else
-        {            
-            // TODO: Implement drop_last
-            return x_batch;
-        }
+
+        TMVA::Experimental::RTensor<float>* res = training_batch_queue.front();
+        training_batch_queue.pop();
+        return res;
     }
-    bool HasData() {
-        return (current_row + batch_size <= num_rows);}
+
+    // return a batch of data
+    TMVA::Experimental::RTensor<float>* GetValidationBatch()
+    {
+        std::unique_lock<std::mutex> lock(batch_lock);
+        batch_condition.wait(lock, [this]() {            
+            return !validation_batch_queue.empty();});
+        
+        if (validation_batch_queue.empty()) {
+            return new TMVA::Experimental::RTensor<float>({0,0});
+        }
+
+        TMVA::Experimental::RTensor<float>* res = validation_batch_queue.front();
+        validation_batch_queue.pop();
+        return res;
+    }
+
+    bool HasTrainData() {
+        std::unique_lock<std::mutex> lock(batch_lock);
+        if (!training_batch_queue.empty() || accept_tasks)
+            return true;
+        lock.unlock();
+
+        return false;
+    }
+
+    bool HasValidationData() {
+        std::unique_lock<std::mutex> lock(batch_lock);
+        if (!validation_batch_queue.empty())
+            return true;
+        lock.unlock();
+
+        return false;
+    }
+
+    // Activate the threads again to accept new tasks
+    void Activate() {
+        accept_tasks = true;
+        batch_condition.notify_all();
+    }
+
+    // Wait untill all tasks are handled, then join the threads 
+    void DeActivate() {
+        accept_tasks = false;
+        batch_condition.notify_one();
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Getters and Setters
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    void SetNumRows(size_t r) {num_rows = r;}
 
-    void Reset(size_t num_rows) {
-        this->num_rows = num_rows;
-        this->current_row = 0;
+    // Fill the batch with rows from the chunk based on the given idx
+    void FillBatch(TMVA::Experimental::RTensor<float>* x_tensor, std::vector<size_t> idx, std::vector<TMVA::Experimental::RTensor<float>*>& batches) { 
+        // Copy rows from x_tensor to the new batch
+        TMVA::Experimental::RTensor<float>* batch = new TMVA::Experimental::RTensor<float>({batch_size, num_columns});
+        for (int i = 0; i < batch_size; i++) {
+            std::copy(x_tensor->GetData() + (idx[i]*num_columns), 
+                      x_tensor->GetData() + ((idx[i]+1)*num_columns), 
+                      batch->GetData() + i*num_columns);
+        }
+
+        batches.push_back(batch);
     }
 
-    void SetTensor(TMVA::Experimental::RTensor<float>* x_tensor, const size_t num_rows) {
-        this->x_tensor = x_tensor;
-        this->num_rows = num_rows;
-        this->current_row = 0;
+    // Add new tasks based on the given x_tensor
+    void CreateBatches(TMVA::Experimental::RTensor<float>* x_tensor, const size_t num_rows) {
 
-        row_order = std::vector<size_t>(num_rows);
-        std::iota(row_order.begin(), row_order.end(), 0);
-        RandomizeOrder();
+        // Calculate the number of batches that will be used for validation
+
+        // create a vector of integers from 0 to chunk_size and shuffle it
+        std::vector<size_t> row_order = std::vector<size_t>(num_rows);
+        std::iota(row_order.begin(), row_order.end(), 0); // Set values of the elements to 0...num_rows
+        
+        std::shuffle(row_order.begin(), row_order.end(),rng); // Shuffle the order of idx
+
+        std::vector<TMVA::Experimental::RTensor<float>*> batches;
+        
+        // Create tasks of batch_size untill all idx are used 
+        for(size_t start = 0; (start + batch_size) <= num_rows; start += batch_size) {
+            
+            std::vector<size_t> idx;
+
+            for (size_t i = start; i < (start + batch_size); i++) {
+                idx.push_back(row_order[i]);
+            }
+
+            FillBatch(x_tensor, idx, batches);
+        }
+
+        // Push the batches to the queues
+        size_t num_validation = batches.size() * validation_split;
+        std::cout << "validation_split: " << validation_split << std::endl;
+        std::cout << "batches.size(): " << batches.size() << std::endl;
+        
+        std::cout << "num_validation: " << num_validation << std::endl;
+        std::unique_lock<std::mutex> lock(batch_lock);
+        for (size_t i = 0; i < batches.size(); i++) {
+            if (i < num_validation)
+                validation_batch_queue.push(batches[i]);
+            else
+                training_batch_queue.push(batches[i]);
+        }
+
+        lock.unlock();
+        batch_condition.notify_one();
     }
-
 };

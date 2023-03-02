@@ -5,6 +5,7 @@
 
 // Include ROOT files
 #include "ROOT/RDataFrame.hxx"
+#include "ROOT/RVec.hxx"
 #include "TMVA/RTensor.hxx"
 
 // Include my classes
@@ -19,39 +20,34 @@
 void LoadChunk(){
     std::string name = "Higgs";
 
-    size_t batch_size = 1024, chunk_size = 10000;
+    size_t batch_size = 1024, chunk_size = 5;
 
     double validation_split = 1;
 
-    std::string file_name;
-    if (name == "h5")
-    {
-        file_name = "../data/h5train_combined.root";
-    }
-    if (name == "Higgs")
-    {
-        file_name = "../data/Higgs_data_full.root";
-    }
-
+    std::string file_name = "../data/vectorData.root";
     std::string tree_name = "sig_tree";
 
     ROOT::RDataFrame x_rdf = ROOT::RDataFrame(tree_name, file_name);
     std::vector<std::string> cols = x_rdf.GetColumnNames();
+    std::vector<size_t> vec_sizes = {5};
+
     size_t num_columns = cols.size();
+    for (size_t s: vec_sizes) {
+        num_columns += s - 1;
+    }
     
+    std::cout << "num_columns: " << num_columns << std::endl; 
+
 
     TMVA::Experimental::RTensor<float> x_tensor({chunk_size, num_columns});
-    ChunkLoader<float&, float&, float&, float&, float&, float&, float&,
-                       float&, float&, float&, float&, float&, float&, float&,
-                       float&, float&, float&, float&, float&, float&, float&, 
-                       float&, float&, float&, float&, float&, float&, float&> func(x_tensor);
+    ChunkLoader<int&, ROOT::RVec<int>, int&> func(x_tensor, vec_sizes);
     auto x_ranged = x_rdf.Range(chunk_size);
 
-    std::cout << "looping" << std::endl;
+    // std::cout << "looping" << std::endl;
     x_ranged.Foreach(func, cols);
-    std::cout << "done" << std::endl;
+    // std::cout << "done" << std::endl;
 
-    std::cout << x_tensor.GetSize() << std::endl;
+    std::cout << x_tensor << std::endl;
 }
 
 void generator_test(std::string name)
