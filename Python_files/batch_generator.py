@@ -7,7 +7,7 @@ main_folder = "../"
 
 class BaseGenerator:
 
-    def get_template(self, file_name: str, tree_name: str, columns = None):
+    def get_template(self, file_name, tree_name, columns = None, vec_sizes = None):
         """Generate a template for the BatchGenerator based on the given RDataFrame and columns
 
         Args:
@@ -21,30 +21,43 @@ class BaseGenerator:
             template (str): Template for the BatchGenerator
         """
 
-        if columns:
-            x_rdf = ROOT.RDataFrame(tree_name, file_name, columns)
-        else:
-            # Load all columns if no columns are given
-            x_rdf = ROOT.RDataFrame(tree_name, file_name)
+        x_rdf = ROOT.RDataFrame(tree_name, file_name)
+
+        if not columns:
+            columns = x_rdf.GetColumnNames()
 
         template_dict = {"Int_t": "int&", "Float_t": "float&", 
                          "ROOT::VecOps::RVec<int>": "ROOT::RVec<int>", 
                          "ROOT::VecOps::RVec<float>": "ROOT::RVec<float>"}
 
         template_string = ""
-        columns = x_rdf.GetColumnNames()
 
-        self.columns = []
+        self.input_columns = []
+        self.output_columns = []
         # Get the types of the different columns
+        
+        vec_size_idx = 0
         for name in columns:
-            self.columns.append(name)
-            template_string += template_dict[x_rdf.GetColumnType(name)] + ","
+            name_str = str(name)
+            self.input_columns.append(name_str)
+            column_type = template_dict[str(x_rdf.GetColumnType(name_str))]
+            template_string +=  column_type + ","
+
+            # If the column is a vector, add multiple columnnames to the output columns
+            if column_type in ["ROOT::RVec<int>", "ROOT::RVec<float>"]:
+                for i in range(vec_sizes[vec_size_idx]):
+                    self.output_columns.append(f"{name_str}_{i}")
+                vec_size_idx += 1
+
+            else:
+                self.output_columns.append(name_str)
+                
 
         return template_string[:-1]
 
-    def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns = None, vec_sizes = None, filters = None, target: str = None, 
-                 weights: str = "", validation_split: float = 1.0, max_chunks: int = 0):
+    def __init__(self, file_name, tree_name, chunk_size, batch_rows,
+                 columns = None, vec_sizes = None, filters = None, target = None, 
+                 weights = "", validation_split = 1.0, max_chunks = 0):
         """_summary_
 
         Args:
@@ -52,37 +65,36 @@ class BaseGenerator:
             tree_name (str): name of the tree in the root file.
             columns (list[str]): Columns that should be loaded.
             filters (list[str]): Filters that should be applied to the Data.
-            chunk_rows (int): The number of events in a chunk of data
+            chunk_size (int): The number of events in a chunk of data
             batch_rows (int): The number of events in a batch
             target (str, optional): The target that should be seperated from the rest of the data.
                                     If not given, all data is returned 
         """
+
+        # convert None types to lists for cppyy
+        if (vec_sizes == None): vec_sizes = []
+        if (columns == None): columns = []
+        if (filters == None): filters = [] 
 
 
         # TODO: better linking when importing into ROOT
         ROOT.gInterpreter.ProcessLine(
             f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
-        template = self.get_template(file_name, tree_name, columns)
-
-        if vec_sizes is None: vec_sizes = []
-        if len(vec_sizes) != template.count("RVec"):
-            raise ValueError (
-                f"Incorrect number of vector sizes provided. \nSizes given: {vec_sizes} for {template.count('RVec')} vectors"
-            )
-
-        self.num_columns = len(self.columns) + sum(vec_sizes) - len(vec_sizes)
+        template = self.get_template(file_name, tree_name, columns, vec_sizes)
+    
+        self.num_columns = len(self.output_columns)
         self.batch_rows = batch_rows
         self.batch_size = batch_rows * self.num_columns
 
         # Handle target
         self.target_given = target is not None
         if self.target_given:
-            if target in self.columns:
-                self.target_index = self.columns.index(target)
+            if target in self.output_columns:
+                self.target_index = self.output_columns.index(target)
             else:
                 raise ValueError(
-                    f"Provided target not in given columns: \ntarget => {target}\ncolumns => {self.columns}")
+                    f"Provided target not in given columns: \ntarget => {target}\ncolumns => {self.output_columns}")
 
         # Handle weights
         self.weights_given = weights is not None
@@ -90,18 +102,16 @@ class BaseGenerator:
             raise ValueError(
                 "Weights can only be used when a target is provided")
         if self.weights_given:
-            if weights in self.columns:
-                self.weights_index = self.columns.index(weights)
+            if weights in self.output_columns:
+                self.weights_index = self.output_columns.index(weights)
             else:
                 raise ValueError(
-                    f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {self.columns}")
+                    f"Provided weights not in given columns: \nweights => {weights}\ncolumns => {self.output_columns}")
 
         # Create C++ batch generator
 
-        print(f"batch_generator {validation_split = }")
-
         self.generator = ROOT.BatchGenerator(template)(
-            file_name, tree_name, self.columns, filters, chunk_rows, batch_rows, vec_sizes, validation_split, max_chunks, self.num_columns)
+            file_name, tree_name, self.input_columns, filters, chunk_size, batch_rows, vec_sizes, validation_split, max_chunks, self.num_columns)
 
         self.deactivated = False
     
@@ -115,8 +125,12 @@ class BaseGenerator:
         """
         self.generator.StopLoading()
 
-
     def GetSample(self):
+        """Return a sample of data that has the same size and types as the actual result
+
+        Returns:
+            np.ndarray: data sample
+        """
         if not self.target_given:
             return np.zeros((self.batch_rows, self.num_columns))
 
@@ -126,6 +140,14 @@ class BaseGenerator:
         return np.zeros((self.batch_rows, self.num_columns-2)), np.zeros((self.batch_rows)), np.zeros((self.batch_rows))
 
     def BatchToNumpy(self, batch):
+        """Convert a RTensor into a NumPy array
+
+        Args:
+            batch (RTensor): Batch returned from the BatchGenerator
+
+        Returns:
+            np.array: converted batch
+        """
         data = batch.GetData()
         data.reshape((self.batch_size,))
         return_data = np.array(data).reshape(
@@ -152,6 +174,14 @@ class BaseGenerator:
         return return_data
 
     def BatchToPyTorch(self, batch):
+        """Convert a RTensor into a PyTorch tensor
+
+        Args:
+            batch (RTensor): Batch returned from the BatchGenerator
+
+        Returns:
+            torch.Tensor: converted batch
+        """
         import torch
 
         data = batch.GetData()
@@ -240,7 +270,6 @@ class TrainBatchGenerator:
         self.conversion_function = conversion_function
     
     def Activate(self):
-        print("TrainBatchGenerator => Activate")
         self.base_generator.Activate()
     
     def DeActivate(self):
@@ -248,12 +277,10 @@ class TrainBatchGenerator:
     
     @property
     def columns(self):
-        return self.base_generator.columns
-        print(f"batch_generator {validation_split = }")
+        return self.base_generator.output_columns
 
     def __call__(self):
         self.Activate()
-
 
         while(True):
             batch = self.base_generator.GetTrainBatch()
@@ -271,7 +298,7 @@ class ValidationBatchGenerator:
 
     @property
     def columns(self):
-        return self.base_generator.columns
+        return self.base_generator.output_columns
 
     def __call__(self):
         while(True):
@@ -283,14 +310,11 @@ class ValidationBatchGenerator:
             yield self.conversion_function(batch)
 
 
-def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns = None, vec_sizes = None, filters = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 1):
-    
-    print(f"GetGenerators {validation_split = }")
+def GetGenerators(file_name, tree_name, chunk_size, batch_rows,
+                 columns = None, vec_sizes = None, filters = [], target = None, 
+                 weights = None, validation_split = 0.1, max_chunks = 1):
 
-
-    base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
+    base_generator = BaseGenerator(file_name, tree_name, chunk_size, batch_rows,
                  columns, vec_sizes, filters, target, weights, validation_split, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator, base_generator.BatchToNumpy)
@@ -298,23 +322,19 @@ def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
 
     return train_generator, validation_generator
 
-def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns = None, vec_sizes = None, filters = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
-
-    print(f"GetTFDatasets {validation_split = }")
+def GetTFDatasets(file_name, tree_name, chunk_size, batch_rows,
+                 columns = None, vec_sizes = None, filters = [], target = None, 
+                 weights = None, validation_split = 0.1, max_chunks = 0):
 
     import tensorflow as tf
 
-    base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
+    base_generator = BaseGenerator(file_name, tree_name, chunk_size, batch_rows,
                  columns, vec_sizes, filters, target, weights, validation_split, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator, base_generator.BatchToTF)
     validation_generator = ValidationBatchGenerator(base_generator, base_generator.BatchToTF)
 
     num_columns = len(train_generator.columns)
-
-    print(f"{num_columns = }")
 
     # No target and weights given
     if (target == None):
@@ -339,13 +359,11 @@ def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
 
     return ds_train, ds_validation
 
-def GetPyTorchDataLoader(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns = None, vec_sizes = None, filters = [], target: str = None, 
-                 weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
+def GetPyTorchDataLoader(file_name, tree_name, chunk_size, batch_rows,
+                 columns = None, vec_sizes = None, filters = [], target = None, 
+                 weights = None, validation_split = 0.1, max_chunks = 0):
 
-    print(f"GetPyTorchDataLoader {validation_split = }")
-
-    base_generator = BaseGenerator(file_name, tree_name, chunk_rows, batch_rows,
+    base_generator = BaseGenerator(file_name, tree_name, chunk_size, batch_rows,
                  columns, vec_sizes, filters, target, weights, validation_split, max_chunks)
 
     train_generator = TrainBatchGenerator(base_generator, base_generator.BatchToPyTorch)
