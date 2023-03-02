@@ -11,6 +11,7 @@
 #include <atomic>
 
 #include "TMVA/RTensor.hxx"
+#include "TMVA/Tools.h"
 
 // Struct for the Tasks given to the threads,
 // A Task states which rows of the given tensor should be used for a batch
@@ -31,6 +32,7 @@ private:
     size_t num_threads, active_threads = 0;
 
     bool accept_tasks = false;
+    TMVA::RandomGenerator<TRandom3> rng;
 
     // filled batch elements
     std::queue<TMVA::Experimental::RTensor<float>*> training_batch_queue;
@@ -45,7 +47,7 @@ public:
     BatchLoader(const size_t batch_size, const size_t num_columns, double validation_split=0.0) 
         : batch_size(batch_size), num_columns(num_columns), validation_split(validation_split)
     {
-
+        rng = TMVA::RandomGenerator<TRandom3>(0);
     }
 
     ~BatchLoader () 
@@ -144,7 +146,8 @@ public:
         // create a vector of integers from 0 to chunk_size and shuffle it
         std::vector<size_t> row_order = std::vector<size_t>(num_rows);
         std::iota(row_order.begin(), row_order.end(), 0); // Set values of the elements to 0...num_rows
-        std::random_shuffle(row_order.begin(), row_order.end()); // Shuffle the order of idx
+        
+        std::shuffle(row_order.begin(), row_order.end(),rng); // Shuffle the order of idx
 
         std::vector<TMVA::Experimental::RTensor<float>*> batches;
         

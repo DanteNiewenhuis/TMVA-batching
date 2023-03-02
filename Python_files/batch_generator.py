@@ -7,7 +7,7 @@ main_folder = "../"
 
 class BaseGenerator:
 
-    def get_template(self, file_name: str, tree_name: str, columns: list[str] = None) -> tuple[list[str], str]:
+    def get_template(self, file_name: str, tree_name: str, columns = None):
         """Generate a template for the BatchGenerator based on the given RDataFrame and columns
 
         Args:
@@ -32,16 +32,18 @@ class BaseGenerator:
                          "ROOT::VecOps::RVec<float>": "ROOT::RVec<float>"}
 
         template_string = ""
-        self.columns = list(x_rdf.GetColumnNames())
+        columns = x_rdf.GetColumnNames()
 
+        self.columns = []
         # Get the types of the different columns
-        for name in self.columns:
+        for name in columns:
+            self.columns.append(name)
             template_string += template_dict[x_rdf.GetColumnType(name)] + ","
 
         return template_string[:-1]
 
     def __init__(self, file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = None, target: str = None, 
+                 columns = None, vec_sizes = None, filters = None, target: str = None, 
                  weights: str = "", validation_split: float = 1.0, max_chunks: int = 0):
         """_summary_
 
@@ -193,7 +195,7 @@ class BaseGenerator:
         return b
     
     # Return a batch when available
-    def GetTrainBatch(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    def GetTrainBatch(self):
         """Return the next batch of data from the given RDataFrame
 
         Raises:
@@ -212,7 +214,7 @@ class BaseGenerator:
 
         return None
 
-    def GetValidationBatch(self) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    def GetValidationBatch(self):
         """Return the next batch of data from the given RDataFrame
 
         Raises:
@@ -245,7 +247,7 @@ class TrainBatchGenerator:
         self.base_generator.DeActivate()
     
     @property
-    def columns(self) -> list[str]:
+    def columns(self):
         return self.base_generator.columns
         print(f"batch_generator {validation_split = }")
 
@@ -268,7 +270,7 @@ class ValidationBatchGenerator:
         self.conversion_function = conversion_function
 
     @property
-    def columns(self) -> list[str]:
+    def columns(self):
         return self.base_generator.columns
 
     def __call__(self):
@@ -282,7 +284,7 @@ class ValidationBatchGenerator:
 
 
 def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, vec_sizes = None, filters: list[str] = [], target: str = None, 
+                 columns = None, vec_sizes = None, filters = [], target: str = None, 
                  weights: str = None, validation_split: float = 0.1, max_chunks: int = 1):
     
     print(f"GetGenerators {validation_split = }")
@@ -297,7 +299,7 @@ def GetGenerators(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
     return train_generator, validation_generator
 
 def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = [], target: str = None, 
+                 columns = None, vec_sizes = None, filters = [], target: str = None, 
                  weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
 
     print(f"GetTFDatasets {validation_split = }")
@@ -338,7 +340,7 @@ def GetTFDatasets(file_name: str, tree_name: str, chunk_rows: int, batch_rows: i
     return ds_train, ds_validation
 
 def GetPyTorchDataLoader(file_name: str, tree_name: str, chunk_rows: int, batch_rows: int,
-                 columns: list[str] = None, vec_sizes: list[int] = None, filters: list[str] = [], target: str = None, 
+                 columns = None, vec_sizes = None, filters = [], target: str = None, 
                  weights: str = None, validation_split: float = 0.1, max_chunks: int = 0):
 
     print(f"GetPyTorchDataLoader {validation_split = }")

@@ -54,10 +54,10 @@ private:
         // Create DataFrame
         long long start_l = current_row;
         long long end_l = start_l + chunk_size;
-        ROOT::Internal::RDF::RDatasetSpec x_spec = ROOT::Internal::RDF::RDatasetSpec(tree_name, 
-                                                file_name, {start_l, std::numeric_limits<Long64_t>::max()});
-        ROOT::RDataFrame x_rdf = ROOT::Internal::RDF::MakeDataFrameFromSpec(x_spec);
-        
+        ROOT::RDF::Experimental::RDatasetSpec x_spec = ROOT::RDF::Experimental::RDatasetSpec().AddGroup({"",tree_name,
+                                                file_name}).WithGlobalRange( {start_l, std::numeric_limits<Long64_t>::max()});
+        ROOT::RDataFrame x_rdf(x_spec);
+
         size_t progressed_events, passed_events;
 
         // add filters if given
