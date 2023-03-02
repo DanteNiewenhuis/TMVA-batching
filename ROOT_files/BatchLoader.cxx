@@ -1,21 +1,5 @@
-#include <iostream>
-#include <vector>
-
-// Imports for threading
-#include <thread> 
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-
-#include "TMVA/RTensor.hxx"
-
-// Struct for the Tasks given to the threads,
-// A Task states which rows of the given tensor should be used for a batch
-struct Task {
-    TMVA::Experimental::RTensor<float>* x_tensor; 
-    bool is_validation;
-    std::vector<size_t> idx;
-};
+namespace TMVA {
+namespace Experimental {
 
 class BatchLoader
 {
@@ -173,3 +157,6 @@ public:
         batch_condition.notify_one();
     }
 };
+
+} // namespace Experimental
+} // namespace TMVA

@@ -1,9 +1,15 @@
+#ifndef TMVA_CHUNKLOADER
+#define TMVA_CHUNKLOADER
+
 #include <iostream>
 #include <vector>
 
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RVec.hxx"
+
+namespace TMVA {
+namespace Experimental {
 
 // ChunkLoader class used to load content of a RDataFrame onto a RTensor.
 template <typename First, typename... Rest>
@@ -95,3 +101,8 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void SetLabel(float l) {label = l;}
 };
+
+} // namespace Experimental
+} // namespace TMVA
+
+#endif // TMVA_CHUNKLOADER

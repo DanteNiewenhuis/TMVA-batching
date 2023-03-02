@@ -1,11 +1,5 @@
-#include <iostream>
-#include <vector>
-#include <thread>
-
-#include "TMVA/RTensor.hxx"
-#include "ROOT/RDF/RDatasetSpec.hxx"
-#include "ChunkLoader.cpp"
-#include "BatchLoader.cpp"
+namespace TMVA {
+namespace Experimental {
 
 template<typename... Args>
 class BatchGenerator 
@@ -129,14 +123,6 @@ public:
         }
     }
 
-    void init() {
-        StopLoading(); // make sure the thread is currently not loading
-        
-        current_row = 0;
-        batch_loader->Activate();
-        loading_thread = new std::thread(&BatchGenerator::LoadChunks, this);
-    }
-
     // Returns the next batch of data if available. 
     // Returns empty RTensor otherwise.
     TMVA::Experimental::RTensor<float>* GetTrainBatch()
@@ -209,3 +195,6 @@ public:
         EoF = true;
     }
 };
+
+} // namespace Experimental
+} // namespace TMVA
