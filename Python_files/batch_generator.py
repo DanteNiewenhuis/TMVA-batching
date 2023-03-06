@@ -115,6 +115,9 @@ class BaseGenerator:
 
         self.deactivated = False
     
+    def start_evaluation(self):
+        self.generator.start_evaluation()
+
     def Activate(self):
         """Initialize the generator to be used for a loop
         """
@@ -301,6 +304,8 @@ class ValidationBatchGenerator:
         return self.base_generator.output_columns
 
     def __call__(self):
+        self.base_generator.start_validation()
+
         while(True):
             batch = self.base_generator.GetValidationBatch()
 
