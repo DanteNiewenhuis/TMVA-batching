@@ -26,27 +26,16 @@ columns = ['jet1_btag', 'jet1_eta', 'Type']
 ds_train, ds_validation = GetTFDatasets(file_name, tree_name, chunk_rows,
                            batch_rows, columns, validation_split=0.5, max_chunks=2)
 
+
 # gen_train, gen_validation = GetGenerators(file_name, tree_name, chunk_rows,
 #                            batch_rows, target="Type", validation_split=0.3, max_chunks=2)
 
 
-for item in ds_train:
-    print(f"train: {type(item)}, {item}")
-
-print(f"\nSTART VALIDATIONS\n")
-
-for item in ds_validation:
-    print(f"validation: {type(item)}, {item}")
-
-print(f"\n\nEPOCH 2\n\n")
-
-for item in ds_train:
-    print(f"train: {type(item)}, {item}")
-
-print(f"\nSTART VALIDATIONS\n")
-
-for item in ds_validation:
-    print(f"validation: {type(item)}, {item}")
+# for item in ds_train:
+#     print(f"train: {type(item)}, {item}")
+    
+# for item in ds_validation:
+#     print(f"validation: {type(item)}, {item}")
     
 # num_columns = len(train_generator.columns)
 
@@ -54,18 +43,18 @@ for item in ds_validation:
 # ## AI example
 # ###################################################################################################
 
-# model = tf.keras.Sequential([
-#     tf.keras.layers.Dense(300, activation=tf.nn.tanh, input_shape=(28,)),  # input shape required
-#     tf.keras.layers.Dense(300, activation=tf.nn.tanh),
-#     tf.keras.layers.Dense(300, activation=tf.nn.tanh),
-#     tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)
-# ])
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(300, activation=tf.nn.tanh, input_shape=(28,)),  # input shape required
+    tf.keras.layers.Dense(300, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(300, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)
+])
 
-# loss_fn = tf.keras.losses.BinaryCrossentropy()
+loss_fn = tf.keras.losses.BinaryCrossentropy()
 
-# model.compile(optimizer='adam',
-#               loss=loss_fn,
-#               metrics=['accuracy'])
+model.compile(optimizer='adam',
+              loss=loss_fn,
+              metrics=['accuracy'])
 
 
-# model.fit(ds_train, validation_data=ds_validation, epochs=3)
+model.fit(ds_train, validation_data=ds_validation, epochs=3)
