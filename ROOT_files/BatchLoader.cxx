@@ -1,3 +1,5 @@
+#include "TMVA/BatchLoader.hxx"
+
 namespace TMVA {
 namespace Experimental {
 

@@ -1,3 +1,5 @@
+#include "TMVA/BatchGenerator.hxx"
+
 namespace TMVA {
 namespace Experimental {
 

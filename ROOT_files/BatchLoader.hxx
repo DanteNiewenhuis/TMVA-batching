@@ -10,6 +10,7 @@
 #include <condition_variable>
 
 #include "TMVA/RTensor.hxx"
+#include "TMVA/Tools.h"
 
 namespace TMVA {
 namespace Experimental {
