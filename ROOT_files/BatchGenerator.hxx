@@ -7,8 +7,9 @@
 
 #include "TMVA/RTensor.hxx"
 #include "ROOT/RDF/RDatasetSpec.hxx"
-#include "ChunkLoader.cpp" // TODO: change to TMVA thing
-#include "BatchLoader.cpp" // TODO: change to TMVA thing
+#include "TMVA/ChunkLoader.hxx"
+#include "TMVA/BatchLoader.hxx"
+#include "TMVA/Tools.h"
 
 namespace TMVA {
 namespace Experimental {
