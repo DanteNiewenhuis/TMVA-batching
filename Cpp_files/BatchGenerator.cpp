@@ -96,7 +96,7 @@ private:
         // Create batches for the current_chunk.
         // First get the correct idices to use, then turn them into batches
         // Validation batches only have to be made in the first epoch
-        if (training_idxs >= current_chunk) {
+        if (training_idxs.size() > current_chunk) {
             batch_loader->CreateTrainingBatches(x_tensor, training_idxs[current_chunk]);
         }
         else {
@@ -106,22 +106,21 @@ private:
         }
     }
 
-void createIdxs(size_t current_chunk, size_t progressed_events) {
-    std::vector<size_t> row_order = std::vector<size_t>(progressed_events);
+    void createIdxs(size_t current_chunk, size_t progressed_events) {
+        std::vector<size_t> row_order = std::vector<size_t>(progressed_events);
 
-    std::iota(row_order.begin(), row_order.end(), 0);
+        std::iota(row_order.begin(), row_order.end(), 0);
 
-    std::shuffle(row_order.begin(), row_order.end(),rng);
+        std::shuffle(row_order.begin(), row_order.end(),rng);
 
-    size_t num_batches = progressed_events / batch_size;
-    size_t num_validation = num_batches * validation_split;
+        size_t num_validation = progressed_events * validation_split;
 
-    std::vector<size_t> valid_idx({row_order.begin(), row_order.begin() + num_validation});
-    std::vector<size_t> train_idx({row_order.begin() + num_validation, row_order.end()});
+        std::vector<size_t> valid_idx({row_order.begin(), row_order.begin() + num_validation});
+        std::vector<size_t> train_idx({row_order.begin() + num_validation, row_order.end()});
 
-    training_idxs.push_back(train_idx);
-    validation_idxs.push_back(valid_idx);
-}
+        training_idxs.push_back(train_idx);
+        validation_idxs.push_back(valid_idx);
+    }
 
 public:
 
@@ -197,9 +196,7 @@ public:
     {   
         // Get next batch if available
         if (batch_loader->HasValidationData()) {
-            TMVA::Experimental::RTensor<float>* batch = batch_loader->GetValidationBatch();
-            previous_batch = batch;
-            return batch;
+            return batch_loader->GetValidationBatch();
         }
         
         // return empty batch if all events have been used

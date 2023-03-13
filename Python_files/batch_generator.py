@@ -115,8 +115,8 @@ class BaseGenerator:
 
         self.deactivated = False
     
-    def start_evaluation(self):
-        self.generator.start_evaluation()
+    def start_validation(self):
+        self.generator.start_validation()
 
     def Activate(self):
         """Initialize the generator to be used for a loop

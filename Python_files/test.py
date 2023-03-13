@@ -14,19 +14,17 @@ main_folder = "../"
 tree_name = "test_tree"
 file_name = f"{main_folder}data/Higgs_data_full.root"
 
-tree_name = "sig_tree"
-file_name = f"{main_folder}data/vectorData.root"
+# tree_name = "sig_tree"
+# file_name = f"{main_folder}data/vectorData.root"
 
-batch_rows = 1
-chunk_rows = 1
+batch_rows = 5
+chunk_rows = 10
 
 columns = ['jet1_btag', 'jet1_eta', 'Type']
-columns = []
-
-vec_sizes = [3]
+# columns = []
 
 ds_train, ds_validation = GetTFDatasets(file_name, tree_name, chunk_rows,
-                           batch_rows, columns, vec_sizes, validation_split=0.3, max_chunks=1)
+                           batch_rows, columns, validation_split=0.5, max_chunks=2)
 
 # gen_train, gen_validation = GetGenerators(file_name, tree_name, chunk_rows,
 #                            batch_rows, target="Type", validation_split=0.3, max_chunks=2)
@@ -34,7 +32,19 @@ ds_train, ds_validation = GetTFDatasets(file_name, tree_name, chunk_rows,
 
 for item in ds_train:
     print(f"train: {type(item)}, {item}")
-    
+
+print(f"\nSTART VALIDATIONS\n")
+
+for item in ds_validation:
+    print(f"validation: {type(item)}, {item}")
+
+print(f"\n\nEPOCH 2\n\n")
+
+for item in ds_train:
+    print(f"train: {type(item)}, {item}")
+
+print(f"\nSTART VALIDATIONS\n")
+
 for item in ds_validation:
     print(f"validation: {type(item)}, {item}")
     

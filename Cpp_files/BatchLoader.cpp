@@ -2,7 +2,6 @@
 #include <vector>
 
 // Imports for threading
-#include <thread> 
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -23,8 +22,8 @@ private:
     const size_t batch_size, num_columns;
 
     // thread elements
-    std::vector<std::thread> threads;
-    size_t num_threads, active_threads = 0;
+    // std::vector<std::thread> threads;
+    // size_t num_threads, active_threads = 0;
 
     bool accept_tasks = false;
     TMVA::RandomGenerator<TRandom3> rng;
