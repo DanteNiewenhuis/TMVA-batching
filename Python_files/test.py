@@ -17,15 +17,15 @@ file_name = f"{main_folder}data/Higgs_data_full.root"
 # tree_name = "sig_tree"
 # file_name = f"{main_folder}data/vectorData.root"
 
-batch_rows = 1024
-chunk_rows = 1_000_000
+batch_rows = 5
+chunk_rows = 10
 
 columns = ['jet1_btag', 'jet1_eta', 'Type']
-columns = []
-
+# columns = []
 
 ds_train, ds_validation = GetTFDatasets(file_name, tree_name, chunk_rows,
-                           batch_rows, columns, validation_split=0.3, target = "Type")
+                           batch_rows, columns, validation_split=0.5, max_chunks=2)
+
 
 # gen_train, gen_validation = GetGenerators(file_name, tree_name, chunk_rows,
 #                            batch_rows, target="Type", validation_split=0.3, max_chunks=2)

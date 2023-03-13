@@ -11,6 +11,8 @@ template<typename... Args>
 class BatchGenerator 
 {
 private:
+    TMVA::RandomGenerator<TRandom3> rng;
+
     std::vector<std::string> cols, filters;
     size_t num_columns, chunk_size, max_chunks, batch_size, current_row=0, entries;
 
@@ -27,6 +29,9 @@ private:
     TMVA::Experimental::RTensor<float>* previous_batch = 0;
     TMVA::Experimental::RTensor<float>* x_tensor;
 
+    std::vector<std::vector<size_t>> training_idxs;
+    std::vector<std::vector<size_t>> validation_idxs;
+
     std::vector<size_t> vec_sizes;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,7 +40,7 @@ private:
     
     // Load chunk_size rows of the given RDataFrame into a RTensor.
     // After, the chunk of data is split into batches of data.
-    void LoadChunk() 
+    void LoadChunk(size_t current_chunk) 
     {
         
         ChunkLoader<Args...> func((*x_tensor), vec_sizes);
@@ -88,7 +93,33 @@ private:
 
         current_row += progressed_events;
 
-        batch_loader->CreateBatches(x_tensor, passed_events);
+        // Create batches for the current_chunk.
+        // First get the correct idices to use, then turn them into batches
+        // Validation batches only have to be made in the first epoch
+        if (training_idxs.size() > current_chunk) {
+            batch_loader->CreateTrainingBatches(x_tensor, training_idxs[current_chunk]);
+        }
+        else {
+            createIdxs(current_chunk, progressed_events);
+            batch_loader->CreateTrainingBatches(x_tensor, training_idxs[current_chunk]);
+            batch_loader->CreateValidationBatches(x_tensor, validation_idxs[current_chunk]);
+        }
+    }
+
+    void createIdxs(size_t current_chunk, size_t progressed_events) {
+        std::vector<size_t> row_order = std::vector<size_t>(progressed_events);
+
+        std::iota(row_order.begin(), row_order.end(), 0);
+
+        std::shuffle(row_order.begin(), row_order.end(),rng);
+
+        size_t num_validation = progressed_events * validation_split;
+
+        std::vector<size_t> valid_idx({row_order.begin(), row_order.begin() + num_validation});
+        std::vector<size_t> train_idx({row_order.begin() + num_validation, row_order.end()});
+
+        training_idxs.push_back(train_idx);
+        validation_idxs.push_back(valid_idx);
     }
 
 public:
@@ -112,9 +143,11 @@ public:
 
         std::cout << "BatchGenerator => found " << entries << " entries in file." << std::endl;
 
-        batch_loader = new BatchLoader(batch_size, num_columns, validation_split);
+        batch_loader = new BatchLoader(batch_size, num_columns);
 
         x_tensor = new TMVA::Experimental::RTensor<float>({chunk_size, num_columns});
+
+        rng = TMVA::RandomGenerator<TRandom3>(0);
     }
 
     ~BatchGenerator () {
@@ -161,16 +194,9 @@ public:
     // Returns empty RTensor otherwise.
     TMVA::Experimental::RTensor<float>* GetValidationBatch()
     {   
-        if (previous_batch != 0) {
-            delete previous_batch;
-            previous_batch = 0;
-        }
-
         // Get next batch if available
         if (batch_loader->HasValidationData()) {
-            TMVA::Experimental::RTensor<float>* batch = batch_loader->GetValidationBatch();
-            previous_batch = batch;
-            return batch;
+            return batch_loader->GetValidationBatch();
         }
         
         // return empty batch if all events have been used
@@ -199,7 +225,7 @@ public:
         // Load chunks untill the end of the file is reached. 
         // Stop loading if a maximum number of chunks is provided
         for (size_t i = 0; ((i < max_chunks) || use_whole_file); i++) {
-            LoadChunk();
+            LoadChunk(i);
             if (current_row >= entries) {
                 break;
             }
@@ -207,5 +233,9 @@ public:
 
         batch_loader->DeActivate();
         EoF = true;
+    }
+
+    void start_validation() {
+        batch_loader->start_validation();
     }
 };
