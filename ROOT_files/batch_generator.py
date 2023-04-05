@@ -1,10 +1,3 @@
-import time
-import ROOT
-import numpy as np
-
-main_folder = "../"
-
-
 class BaseGenerator:
 
     def get_template(self, file_name, tree_name, columns = None, vec_sizes = None):
@@ -71,15 +64,18 @@ class BaseGenerator:
                                     If not given, all data is returned 
         """
 
+        import numpy as np
+        import ROOT
+
         # convert None types to lists for cppyy
         if (vec_sizes == None): vec_sizes = []
         if (columns == None): columns = []
         if (filters == None): filters = [] 
 
-
+        main_folder = "../"
         # TODO: better linking when importing into ROOT
-        ROOT.gInterpreter.ProcessLine(
-            f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
+        # ROOT.gInterpreter.ProcessLine(
+        #     f'#include "{main_folder}Cpp_files/BatchGenerator.cpp"')
 
         template = self.get_template(file_name, tree_name, columns, vec_sizes)
     
