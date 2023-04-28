@@ -21,7 +21,7 @@ import time
 
 start = time.time()
 
-file = uproot.open("../data/Higgs_data_5.root")
+file = uproot.open("../data/Higgs_data_10.root")
 tree = file["sig_tree"]
 branches = tree.arrays()
 target = "jet1_btag"
@@ -59,6 +59,6 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 
-model.fit(x=X, y=y, batch_size=1024, validation_split=0.3, callbacks = [BatchTimer("Tensorflow_uproot", loading_time)], epochs=2)
+model.fit(x=X, y=y, batch_size=1024, validation_split=0.3, callbacks = [BatchTimer("Tensorflow_uproot", loading_time)], epochs=1)
 
 # %%
