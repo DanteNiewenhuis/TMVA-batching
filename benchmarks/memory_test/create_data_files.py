@@ -1,7 +1,7 @@
 import os
 
 
-main_folder = "/home/danteniewenhuis/Documents/CERN/TMVA-batching"
+main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
 folder = f"{main_folder}/data/file_sizes_bench"
 
 def create_file(num):

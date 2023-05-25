@@ -39,3 +39,5 @@ data/*
 **/__pycache__
 
 cppyy_problem
+
+.venv

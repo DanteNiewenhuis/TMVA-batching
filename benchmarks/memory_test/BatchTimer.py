@@ -1,7 +1,7 @@
 import time
 from tensorflow import keras
 
-main_folder = "/home/danteniewenhuis/Documents/CERN/TMVA-batching"
+main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
 
 class BatchTimer(keras.callbacks.Callback):
     def __init__(self, file_name, loading_time=0):
