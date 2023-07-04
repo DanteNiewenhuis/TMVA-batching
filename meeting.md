@@ -1,36 +1,24 @@
-## Deliverables
+# PR
 
-- ChunkLoader -> A functor that loads the content of a RDataFrame into a RTensor. 
-                Using the Range function a specific chunk of the RDataFrame can be loaded.  
-                The process is much faster than the current TMVA AsTensor implementation (around 15x). 
-                
+## TODO:
+
+1.  Add tests
+2.  Add tutorials
+3.  Restructure code to be in line with other ROOT code
+4.  Add stopping mechanism for validation batches (memory problem!!!)
+5.  Improve handling of batching when there are not enough events left in a chunk to make a batch
+    For now: Create smaller batch for the final batch of a chunk
+6.  Implement sequential vs random batches 
+7.  Look at the crash when generator is never used and Python exits
 
 
-- BatchLoader -> Takes a RTensor and splits it into batches. 
-                          The generator can return both random batches, or sequential. 
-                          However, returning random batches is standard in AI, and thus better to use. 
-                          Comparing random batching to sequential batching has not resulted in significant time difference yet (more testing needed).
+# Extensions and Improvements
 
-- BatchGenerator -> Combines the ChunkLoader and the BatchLoader. 
-                        A Chunk of Data is loaded into memory using the ChunkLoader. 
-                        After, the BatchLoader is used to create batches. 
-                        When the current chunk of data has been loaded completely, a new chunk is loaded. 
-
-                    The user can specify the size of a chunk. This is especially useful when dealing with larger files. 
-
-## Problems
-
-- Column number ->  Problem: The implementation of the ChunkLoader uses templating to read the columns. 
-                    Solution: Dynamicly compile the ChunkLoader functions.
-                        This already works in the Python implementation, but still has to be added to the Cpp loader
-
-- DataSetSpec -> Currently, loading chunks gets slower further into the process. This is because the Range function first has through all the rows 
-                to get to the starting row. A way to fix this would be to use DatasetSpec instead of RDataFrame directly. 
-                This seems to be much faster, but has the problem that it needs to reload the RDataFrame for every chunk. 
-                It is also more difficult to combine it with filters. I will have to do some tests to know which method to choose. 
-
-- Parralel -> Ideally, a new chunk can be loaded into memory while processing the batches. 
-              An initial version of this has already been implemented in Python, but can be improved.
-
-- DataSetSpec cannot load rows that are not in the RDataFrame. We will thus need another method of stopping
-
+1. Loading directly to GPU
+2. Look into adding events from next chunk if there are too few events for a batch
+3. Look into explicit template instantiation
+4. Stop reloading of chunks if chunk is the size of the dataset
+5. Start loading first chunk during validation
+6. Look into separate non-filtered loading
+7. Add the option to difine new features
+8. Add support for loading multiple datasets
