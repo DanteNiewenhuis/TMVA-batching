@@ -29,7 +29,7 @@ args = parser.parse_args()
 
 num = args.num
 
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 
 start = time.time()

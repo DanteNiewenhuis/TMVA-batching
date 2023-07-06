@@ -1,7 +1,7 @@
 import subprocess
 import re
 
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 def get_performance_ROOT(num, chunksize):
     print("testing ROOT")

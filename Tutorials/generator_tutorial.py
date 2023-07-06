@@ -4,16 +4,15 @@ import ROOT
 
 ROOT.EnableThreadSafety()
 
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 tree_name = "test_tree"
-file_name = f"{main_folder}/data/Higgs_data_full.root"
+# file_name = f"{main_folder}/data/Higgs_data_full.root"
 # file_name = f"{main_folder}/data/hvector.root"
-# file_name = f"{main_folder}/data/simple_data.root"
+file_name = f"{main_folder}/data/small_data.root"
 
-
-chunk_size = 1_000_000
-batch_size = 1024
+chunk_size = 50
+batch_size = 10
 
 
 max_vec_sizes = {"f1": 2, "f4": 3}
@@ -32,12 +31,9 @@ print(f"{ds_train.columns = }")
 
 for i, b in enumerate(ds_train):
     print(f"Training batch {i} => {b.shape = }")
-    break
 
-# ds_train.DeActivate()
-# print(f"Starting Validation")
-# for i, b in enumerate(ds_validation):
-#     print(f"Validation batch {i} => {len(b) = }")
-#     break
-
+print(f"Starting Validation")
+for i, b in enumerate(ds_validation):
+    print(f"Validation batch {i} => {len(b) = }")
+    
 print("END OF FILE")

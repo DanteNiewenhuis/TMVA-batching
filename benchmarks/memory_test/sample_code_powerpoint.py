@@ -1,6 +1,6 @@
 from ROOT.TMVA.Experimental import GetTFDatasets, GetBatchGenerators, GetPyTorchDataLoaders 
 
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 tree_name = "test_tree"
 file_name = f"{main_folder}/data/file_sizes_bench/{num}.root"

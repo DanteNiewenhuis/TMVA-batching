@@ -21,6 +21,10 @@ ds_train, ds_valid = ROOT.TMVA.Experimental.CreateTFDatasets(
     target="Type",
 )
 
+columns = ds_train.train_columns
+
+num_columns = len(columns)
+
 ###################################################################################################
 # AI example
 ###################################################################################################
@@ -28,7 +32,7 @@ ds_train, ds_valid = ROOT.TMVA.Experimental.CreateTFDatasets(
 model = tf.keras.Sequential(
     [
         tf.keras.layers.Dense(
-            300, activation=tf.nn.tanh, input_shape=(28,)
+            300, activation=tf.nn.tanh, input_shape=(num_columns-2,)
         ),  # input shape required
         tf.keras.layers.Dense(300, activation=tf.nn.tanh),
         tf.keras.layers.Dense(300, activation=tf.nn.tanh),

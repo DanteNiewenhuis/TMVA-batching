@@ -5,7 +5,7 @@ import ROOT
 
 ROOT.EnableThreadSafety()
 
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 tree_name = "test_tree"
 file_name = f"{main_folder}/data/Higgs_data_full.root"
@@ -27,7 +27,7 @@ def calc_accuracy(targets, pred):
     return torch.sum(targets == pred.round()) / pred.size(0)
 
 
-columns = gen_train.columns
+columns = gen_train.train_columns
 
 print(columns)
 num_columns = len(columns)
@@ -35,7 +35,7 @@ num_columns = len(columns)
 
 # Initialize pytorch
 model = torch.nn.Sequential(
-    torch.nn.Linear(num_columns - 3, 300),
+    torch.nn.Linear(num_columns, 300),
     torch.nn.Tanh(),
     torch.nn.Linear(300, 300),
     torch.nn.Tanh(),

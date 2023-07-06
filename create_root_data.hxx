@@ -12,7 +12,7 @@
 void write()
 {
 
-   TFile *f = TFile::Open("data/large_data.root", "RECREATE");
+   TFile *f = TFile::Open("data/small_data.root", "RECREATE");
 
    if (!f)
    {
@@ -29,7 +29,7 @@ void write()
    t->Branch("f2", &f2);
    t->Branch("f3", &f3);
 
-   Int_t i_max = 10000000;
+   Int_t i_max = 100;
    Int_t value = 1;
    for (Int_t i = 1; i < i_max + 1; i++)
    {

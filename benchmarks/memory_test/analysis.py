@@ -9,7 +9,7 @@ axis_fontsize = 18
 
 df = pd.read_csv("results/memory.csv")
 chunk_size = 1_000_000
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 
 def get_size(num):
@@ -203,7 +203,7 @@ axis_fontsize = 18
 
 df = pd.read_csv("results/memory.csv")
 chunk_size = 1_000_000
-main_folder = "/home/dante-niewenhuis/Documents/TMVA-batching"
+main_folder = "/home/dante/Documents/TMVA-batching"
 
 
 # %%
