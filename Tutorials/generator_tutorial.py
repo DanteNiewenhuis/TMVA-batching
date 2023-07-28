@@ -2,7 +2,7 @@ import time
 import numpy as np
 import ROOT
 
-ROOT.EnableThreadSafety()
+# ROOT.EnableThreadSafety()
 
 main_folder = "/home/dante/Documents/TMVA-batching"
 
@@ -11,29 +11,38 @@ tree_name = "test_tree"
 # file_name = f"{main_folder}/data/hvector.root"
 file_name = f"{main_folder}/data/small_data.root"
 
-chunk_size = 50
-batch_size = 10
+# tree_name = "sig_tree"
+# file_name = "http://root.cern/files/Higgs_data.root"
 
+chunk_size = 500
+batch_size = 5
 
-max_vec_sizes = {"f1": 2, "f4": 3}
+# filters = ["f1 > 30", "f2 < 70", "f3 == true"]
+# filters = ["Type == true"]
+# max_vec_sizes = {"f4": 1, "f5": 1, "f6": 1}
 
-ds_train, ds_validation = ROOT.TMVA.Experimental.CreateNumPyGenerators(
+target = ["f1", "f2"]
+target = "f1"
+
+ds_train, ds_validation = ROOT.TMVA.Experimental.CreateTFDatasets(
     tree_name,
     file_name,
     batch_size,
     chunk_size,
     validation_split=0.3,
-    max_vec_sizes=max_vec_sizes,
+    target=target,
+    shuffle=False,
 )
 
 print(f"{ds_train.columns = }")
+print(f"{ds_train.train_columns = }")
+print(f"{ds_train.target_columns = }")
 
 
-for i, b in enumerate(ds_train):
-    print(f"Training batch {i} => {b.shape = }")
+for x, y in ds_train:
+    print(f"Training batch => {x = }, {y = }")
+    break
 
-print(f"Starting Validation")
 for i, b in enumerate(ds_validation):
-    print(f"Validation batch {i} => {len(b) = }")
-    
-print("END OF FILE")
+    print(f"Validation batch {i} => {b = }")
+    break

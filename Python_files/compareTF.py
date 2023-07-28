@@ -1,11 +1,10 @@
-
 import uproot
 import numpy as np
 import tensorflow as tf
 
 import time
 
-from batch_generator import GetTFDatasets
+from batch_generator import CreateTFDatasets
 
 
 # def h52numpy():
@@ -51,8 +50,9 @@ batch_size = 1024
 # wf.close()
 
 chunk_size = 100_000
-ds_train, ds_valid = GetTFDatasets(file_name, tree_name, chunk_size,
-                           batch_size, validation_split=0, target="Type")
+ds_train, ds_valid = CreateTFDatasets(
+    file_name, tree_name, chunk_size, batch_size, validation_split=0, target="Type"
+)
 
 
 wf = open("../ROOT_batching.csv", "w")

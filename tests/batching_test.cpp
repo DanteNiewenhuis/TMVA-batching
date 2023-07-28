@@ -11,7 +11,7 @@ void batching_test()
    const float fValidationSplit = 0.3;
 
    TMVA::Experimental::RTensor<float> x_tensor = TMVA::Experimental::RTensor<float>({fChunkSize, fNumColumns});
-   TMVA::Experimental::RBatchLoader fBatchLoader(fBatchSize, fNumColumns, fMaxBatches);
+   TMVA::Experimental::Internal::RBatchLoader fBatchLoader(fBatchSize, fNumColumns, fMaxBatches);
 
    // Create indices
    std::vector<size_t> row_order = std::vector<size_t>(fChunkSize);
@@ -26,18 +26,18 @@ void batching_test()
    fBatchLoader.CreateValidationBatches(x_tensor, valid_idx);
    fBatchLoader.DeActivate(); // DeActivate the Loading after the batches are created
 
-   TMVA::Experimental::RTensor<float> *current_batch;
+   TMVA::Experimental::RTensor<float> current_batch = TMVA::Experimental::RTensor<float>({0});
    while (fBatchLoader.HasTrainData())
    {
       current_batch = fBatchLoader.GetTrainBatch();
-      std::cout << "training batch: " << current_batch->GetSize() << std::endl;
+      std::cout << "training batch: " << current_batch.GetSize() << std::endl;
    }
 
    fBatchLoader.StartValidation();
    while (fBatchLoader.HasValidationData())
    {
       current_batch = fBatchLoader.GetValidationBatch();
-      std::cout << "validation batch: " << current_batch->GetSize() << std::endl;
+      std::cout << "validation batch: " << current_batch.GetSize() << std::endl;
    }
 
    std::cout << "Epoch 2" << std::endl;
@@ -47,14 +47,14 @@ void batching_test()
    while (fBatchLoader.HasTrainData())
    {
       current_batch = fBatchLoader.GetTrainBatch();
-      std::cout << "training batch: " << current_batch->GetSize() << std::endl;
+      std::cout << "training batch: " << current_batch.GetSize() << std::endl;
    }
 
    fBatchLoader.StartValidation();
    while (fBatchLoader.HasValidationData())
    {
       current_batch = fBatchLoader.GetValidationBatch();
-      std::cout << "validation batch: " << current_batch->GetSize() << std::endl;
+      std::cout << "validation batch: " << current_batch.GetSize() << std::endl;
    }
 
    std::cout << "EndOfFile" << std::endl;

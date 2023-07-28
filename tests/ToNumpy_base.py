@@ -7,7 +7,7 @@ ROOT.EnableThreadSafety()
 
 start = time.perf_counter()
 tree_name = "test_tree"
-file_name = "../data/simple_data.root"
+file_name = "../data/small_data.root"
 
 x_rdf = ROOT.RDataFrame(tree_name, file_name)
 end = time.perf_counter()
@@ -24,4 +24,4 @@ end = time.perf_counter()
 print(f"ToNumpy took {end - start}")
 
 
-print(f"{x_array = }")
+print(f"{x_array}")

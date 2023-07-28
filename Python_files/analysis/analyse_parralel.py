@@ -51,25 +51,33 @@ plt.plot(diff_normal)
 # %%
 
 
-delay = 0.1
+delay = 0
 
 parallel = []
-with open(f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r") as rf:
+with open(
+    f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r"
+) as rf:
     for line in rf.readlines():
         parallel.append(float(line))
 
 parallel = np.array(parallel)
 single = []
-with open(f"{main_folder}results/Parallel/python_single_{delay*1_000_000:.0f}.csv", "r") as rf:
+with open(
+    f"{main_folder}results/Parallel/python_single_{delay*1_000_000:.0f}.csv", "r"
+) as rf:
     for line in rf.readlines():
         single.append(float(line))
 
 single = np.array(single)
 
-plt.plot(parallel, label="parallel")
-plt.plot(single, label="single")
-plt.legend()
-plt.savefig(f"{main_folder}results/Images/Parallel/Parallel_vs_Single{delay*1_000_000:.0f}.png")
+# plt.plot(parallel, label="parallel")
+plt.plot(single, label="single thread")
+plt.legend(fontsize=15, loc="lower right")
+plt.title("Loading time of a batch using a single thread", fontsize=15)
+plt.tight_layout()
+plt.savefig(
+    f"{main_folder}results/Images/Parallel/Parallel_vs_Single{delay*1_000_000:.0f}.png"
+)
 plt.show()
 
 # %%
@@ -81,15 +89,16 @@ plt.plot(single_norm, label="single")
 plt.show()
 # %%
 
-delays = [0.0001, 0.001, 0.01, 0]
+delays = [0.0001, 0.001, 0.01]
 
 data = []
 
 for delay in delays:
-
     parallel = []
 
-    with open(f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r") as rf:
+    with open(
+        f"{main_folder}results/Parallel/python_parallel_{delay*1_000_000:.0f}.csv", "r"
+    ) as rf:
         for line in rf.readlines():
             parallel.append(float(line))
 
@@ -106,12 +115,14 @@ norms = []
 for delay, line in zip(delays, data):
     norm = line - np.arange(len(line)) * delay
     norms.append(norm)
-    plt.plot(norm, label=delay)
+    plt.plot(norm, label=f"processing time: {delay}")
 
 # plt.plot(data[0], label=delays[0])
 
-plt.legend()
+plt.legend(fontsize=15, loc="lower right")
 
+plt.title("Batch loading time with different processing times", fontsize=15)
+plt.tight_layout()
 plt.savefig(f"{main_folder}results/Images/Parallel_comparison.png")
 
 plt.show()
